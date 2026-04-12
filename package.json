@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "sync:styles:dist": "sass --style=compressed --load-path=node_modules --silence-deprecation=if-function src/ui/styles.scss dist/assets/styles.min.css --no-source-map",
