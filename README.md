@@ -7,7 +7,7 @@ A browser-based Vue app for packing MTG inventory CSV data into box groups, with
 
 ## Requirements
 
-- Node.js 20+ (for tests and build scripts)
+- Node.js 24+ (latest LTS; for tests and build scripts)
 - A modern browser
 
 ## Project Layout
@@ -85,8 +85,10 @@ Clean build output:
 npm run clean
 ```
 
-- `scripts/build.js` copies `index.html` and runtime source files from `src/` into `dist/`.
-- Sass compiles `src/ui/styles.scss` into `dist/src/ui/styles.css`.
+- `scripts/build.js` writes a minified `dist/index.html` that references built assets.
+- Sass compiles `src/ui/styles.scss` into `dist/assets/styles.min.css`.
+- esbuild bundles/minifies app code into `dist/assets/app.min.js`.
+- `scripts/optimize-dist.js` applies content-hashed asset filenames and rewrites `dist/index.html` references.
 
 ## CI/CD
 

@@ -2,6 +2,9 @@ const SCRYFALL_SETS_URL = "https://api.scryfall.com/sets";
 const SCRYFALL_CARD_BY_ID_URL = "https://api.scryfall.com/cards";
 const CACHE_KEY = "box-packer-scryfall-sets-v1";
 const CARD_CACHE_KEY = "box-packer-scryfall-cards-by-id-v1";
+const SETS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const CARD_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const CARD_NEGATIVE_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -16,7 +19,30 @@ function loadCardCache() {
     const raw = localStorage.getItem(CARD_CACHE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
+    if (!parsed || typeof parsed !== "object") return {};
+
+    const now = Date.now();
+    const next = {};
+    for (const [id, entry] of Object.entries(parsed)) {
+      if (!entry || typeof entry !== "object") continue;
+
+      const fetchedAt = Number(entry.fetchedAt || 0);
+      const failedAt = Number(entry.failedAt || 0);
+      const hasPositiveData = Boolean(entry.code && entry.name);
+
+      if (hasPositiveData) {
+        if (!fetchedAt || now - fetchedAt <= CARD_CACHE_TTL_MS) {
+          next[id] = entry;
+        }
+        continue;
+      }
+
+      if (failedAt && now - failedAt <= CARD_NEGATIVE_CACHE_TTL_MS) {
+        next[id] = entry;
+      }
+    }
+
+    return next;
   } catch {
     return {};
   }
@@ -86,6 +112,8 @@ export async function resolveCardsByScryfallId(ids) {
     const cached = cache[id];
     if (cached?.code && cached?.name) {
       resolvedById[id] = cached;
+    } else if (cached?.failedAt) {
+      unresolvedIds.push(id);
     } else {
       queue.push(id);
     }
@@ -112,6 +140,10 @@ export async function resolveCardsByScryfallId(ids) {
         cache[id] = value;
       } else {
         unresolvedIds.push(id);
+        cache[id] = {
+          failedAt: Date.now(),
+          reason: result.reason || "unknown",
+        };
       }
     }
   }
@@ -150,6 +182,11 @@ export async function loadScryfallSets() {
     cached = null;
   }
 
+  const now = Date.now();
+  if (Array.isArray(cached?.data) && Number.isFinite(cached?.fetchedAt) && now - cached.fetchedAt <= SETS_CACHE_TTL_MS) {
+    return cached.data;
+  }
+
   const headers = { Accept: "application/json" };
   if (cached?.etag) headers["If-None-Match"] = cached.etag;
   if (cached?.lastModified) headers["If-Modified-Since"] = cached.lastModified;
@@ -158,7 +195,7 @@ export async function loadScryfallSets() {
     const response = await fetch(SCRYFALL_SETS_URL, { headers });
 
     if (response.status === 304 && Array.isArray(cached?.data)) {
-      cached.fetchedAt = Date.now();
+      cached.fetchedAt = now;
       localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
       return cached.data;
     }

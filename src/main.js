@@ -125,6 +125,24 @@ function formatForeignCodes(sets) {
     .join("  |  ");
 }
 
+function escapeCsvCell(value) {
+  const str = String(value ?? "");
+  if (!/[",\n\r]/.test(str)) return str;
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+function downloadTextFile(fileName, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
+
 function extractYear(text) {
   const m = /\b(19|20)\d{2}\b/.exec(String(text || ""));
   return m ? Number(m[0]) : null;
@@ -813,6 +831,74 @@ createApp({
       return `${name}|${collector}|${setCode}|${foil}`;
     }
 
+    function exportBoxesCsv() {
+      if (!boxes.value.length) return;
+      const header = ["boxIndex", "boxLabel", "setCode", "setName", "setCount", "year", "releasedAt", "language", "setType"];
+      const lines = [header.join(",")];
+
+      boxes.value.forEach((box, boxIndex) => {
+        (box.sets || []).forEach((setInfo) => {
+          const row = [
+            boxIndex + 1,
+            box.label,
+            formatSetCode(setInfo.code || ""),
+            setInfo.name || "",
+            Number(setInfo.count || 0),
+            setInfo.year || "",
+            setInfo.releasedAt || "",
+            setInfo.language || FOREIGN_LANGUAGE_ENGLISH,
+            setInfo.setType || "",
+          ].map(escapeCsvCell);
+          lines.push(row.join(","));
+        });
+      });
+
+      downloadTextFile("box-packer-boxes.csv", `${lines.join("\n")}\n`, "text/csv;charset=utf-8");
+    }
+
+    function exportReviewCsv() {
+      if (!missingEditionList.value.length) return;
+      const header = ["count", "name", "edition", "language", "code", "reason", "scryfallId"];
+      const lines = [header.join(",")];
+
+      missingEditionList.value.forEach((item) => {
+        const row = [
+          Number(item.count || 0),
+          item.name || "",
+          item.edition || "",
+          item.language || "",
+          item.code || "",
+          item.reason || "",
+          item.scryfallId || "",
+        ].map(escapeCsvCell);
+        lines.push(row.join(","));
+      });
+
+      downloadTextFile("box-packer-needs-review.csv", `${lines.join("\n")}\n`, "text/csv;charset=utf-8");
+    }
+
+    function exportRunJson() {
+      if (!boxes.value.length && !missingEditionList.value.length) return;
+      const payload = {
+        generatedAt: new Date().toISOString(),
+        settings: {
+          boxCapacity: Number(boxCapacity.value) || 0,
+          binderTag: String(binderTag.value || "").trim(),
+          startAt1993: Boolean(startAt1993.value),
+        },
+        summary: {
+          boxCount: boxes.value.length,
+          totalCards: totalCards.value,
+          binderTotal: binderTotal.value,
+          missingEditionTotal: missingEditionTotal.value,
+        },
+        boxes: boxes.value,
+        missingEditionList: missingEditionList.value,
+      };
+
+      downloadTextFile("box-packer-results.json", `${JSON.stringify(payload, null, 2)}\n`, "application/json;charset=utf-8");
+    }
+
     function trapModalFocus(event) {
       if (event.key !== "Tab") return;
       const root = event.currentTarget;
@@ -979,6 +1065,9 @@ createApp({
       cardsForBox,
       foreignCardsBySet,
       cardRowKey,
+      exportBoxesCsv,
+      exportReviewCsv,
+      exportRunJson,
       openExternalLink,
       selectedBoxIndex,
       selectedSetInfo,
@@ -1248,6 +1337,11 @@ createApp({
             <div class="metric-title cds--label">Cards in binder</div>
             <div class="metric-value cds--productive-heading-03">{{ binderTotal }}</div>
           </div>
+        </div>
+        <div class="controls-secondary export-actions">
+          <button type="button" class="cds--btn cds--btn--secondary" @click="exportBoxesCsv">Export Boxes CSV</button>
+          <button type="button" class="cds--btn cds--btn--secondary" @click="exportReviewCsv" :disabled="!missingEditionList.length">Export Review CSV</button>
+          <button type="button" class="cds--btn cds--btn--secondary" @click="exportRunJson">Export Run JSON</button>
         </div>
       </section>
 
