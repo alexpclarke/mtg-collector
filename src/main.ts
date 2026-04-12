@@ -1337,6 +1337,8 @@ createApp({
         </div>
       </section>
 
+      <div class="app-footer-note cds--helper-text-01">Powered by GitroHub</div>
+
       <div
         v-if="openSettingsTooltip"
         id="settings-tooltip"
