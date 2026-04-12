@@ -1,44 +1,49 @@
-import fs from "node:fs";
 import path from "node:path";
+import { promises as fs } from "node:fs";
+import { minify } from "html-minifier-terser";
 
 const DIST = "dist";
-const SRC = "src";
+const DIST_ASSETS = path.join(DIST, "assets");
 
-function copyFile(src, dest) {
-  fs.mkdirSync(path.dirname(dest), { recursive: true });
-  fs.copyFileSync(src, dest);
+async function copyFile(src, dest) {
+  await fs.mkdir(path.dirname(dest), { recursive: true });
+  await fs.copyFile(src, dest);
 }
 
-function copyDirectoryRecursive(srcDir, destDir) {
-  fs.mkdirSync(destDir, { recursive: true });
-  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
-    const srcPath = path.join(srcDir, entry.name);
-    const destPath = path.join(destDir, entry.name);
-    if (entry.isDirectory()) {
-      copyDirectoryRecursive(srcPath, destPath);
-    } else {
-      copyFile(srcPath, destPath);
-    }
-  }
+async function buildIndexHtml() {
+  const source = await fs.readFile("index.html", "utf8");
+  const rewritten = source
+    .replace('./src/ui/styles.css', './assets/styles.min.css')
+    .replace('./src/main.js', './assets/app.min.js');
+
+  const minified = await minify(rewritten, {
+    collapseWhitespace: true,
+    removeComments: true,
+    keepClosingSlash: true,
+    minifyCSS: false,
+    minifyJS: false,
+  });
+
+  await fs.writeFile(path.join(DIST, "index.html"), minified, "utf8");
 }
 
-function main() {
-  if (fs.existsSync(DIST)) {
-    fs.rmSync(DIST, { recursive: true, force: true });
-  }
-  fs.mkdirSync(DIST);
+async function main() {
+  await fs.rm(DIST, { recursive: true, force: true });
+  await fs.mkdir(DIST_ASSETS, { recursive: true });
 
-  copyFile("index.html", path.join(DIST, "index.html"));
+  await buildIndexHtml();
 
-  if (fs.existsSync(SRC)) {
-    copyDirectoryRecursive(SRC, path.join(DIST, SRC));
-  }
-
-  if (fs.existsSync("CNAME")) {
-    copyFile("CNAME", path.join(DIST, "CNAME"));
+  try {
+    await fs.access("CNAME");
+    await copyFile("CNAME", path.join(DIST, "CNAME"));
+  } catch {
+  // no-op when CNAME is not present
   }
 
-  console.log("Build complete. Output in dist/");
+  console.log("Build scaffold complete. Output in dist/");
 }
 
-main();
+main().catch((error) => {
+  console.error("Build scaffold failed:", error);
+  process.exitCode = 1;
+});

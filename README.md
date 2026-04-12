@@ -18,10 +18,8 @@ A browser-based Vue app for packing MTG inventory CSV data into box groups, with
 - `src/domain/packing.js` - Packing/chunking helpers
 - `src/services/scryfall.js` - Scryfall fetch/cache helpers
 - `src/ui/run-state.js` - Run/reset failure-state helpers
-- `src/ui/styles.css` - App styles
-- `src/vendor/carbon/styles.min.css` - Local synced Carbon stylesheet
+- `src/ui/styles.scss` - App styles source (Sass)
 - `scripts/build.js` - Static build script (`dist/` output)
-- `scripts/sync-carbon-css.js` - Syncs Carbon CSS from `node_modules` into `src/vendor/`
 - `tests/domain/` - Domain-level unit tests
 - `tests/ui/` - UI state unit tests
 - `tests/resources/` - CSV fixture resources (gitignored)
@@ -36,30 +34,22 @@ Install all dependencies:
 npm ci
 ```
 
-`npm ci` runs a postinstall step that syncs the Carbon stylesheet into `src/vendor/carbon/styles.min.css`.
-
 ## Run Locally
 
-This is a static web app. Serve the project folder and open it in a browser.
-
-Option 1 (Python):
+Build and serve the dist output:
 
 ```bash
-python3 -m http.server 5173
+npm run dev
 ```
 
-Option 2 (Node):
+Or run in two steps:
 
 ```bash
-npx serve .
+npm run build
+npm run serve
 ```
 
-Then open:
-
-- `http://localhost:5173` (Python option)
-- or the URL printed by `serve`
-
-You can also open `index.html` directly with a `file://` URL, but a local server is recommended.
+Then open the URL printed by `serve`.
 
 ## Test
 
@@ -95,7 +85,8 @@ Clean build output:
 npm run clean
 ```
 
-- `scripts/build.js` copies `index.html` and `src/` into `dist/`.
+- `scripts/build.js` copies `index.html` and runtime source files from `src/` into `dist/`.
+- Sass compiles `src/ui/styles.scss` into `dist/src/ui/styles.css`.
 
 ## CI/CD
 
