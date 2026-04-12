@@ -58,6 +58,7 @@ jobs:
         with:
           name: github-pages
           path: ./github-pages.tar.gz
+          archive: false
           if-no-files-found: error
           retention-days: 1
 
