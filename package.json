@@ -5,15 +5,25 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node scripts/build.js",
+    "sync:styles:dist": "sass --load-path=node_modules --silence-deprecation=if-function src/ui/styles.scss dist/src/ui/styles.css --no-source-map",
+    "build": "node scripts/build.js && npm run sync:styles:dist",
+    "dev": "npm run build && npx serve dist",
+    "watch": "sass --watch --load-path=node_modules --silence-deprecation=if-function src/ui/styles.scss dist/src/ui/styles.css --no-source-map",
     "serve": "npx serve dist",
-    "lint": "eslint .",
+    "lint": "eslint . && stylelint 'src/**/*.scss' --fix",
     "clean": "rm -rf dist",
     "test": "node --test"
+  },
+  "dependencies": {
+    "@carbon/styles": "1.75.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.1",
     "eslint": "^9.25.1",
-    "globals": "^15.15.0"
+    "globals": "^15.15.0",
+    "sass": "^1.93.2",
+    "stylelint": "^17.7.0",
+    "stylelint-config-standard-scss": "^17.0.0",
+    "stylelint-config-standard": "^40.0.0"
   }
 }

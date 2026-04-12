@@ -19,20 +19,24 @@ A browser-based Vue app for packing MTG inventory CSV data into box groups, with
 - `src/services/scryfall.js` - Scryfall fetch/cache helpers
 - `src/ui/run-state.js` - Run/reset failure-state helpers
 - `src/ui/styles.css` - App styles
+- `src/vendor/carbon/styles.min.css` - Local synced Carbon stylesheet
 - `scripts/build.js` - Static build script (`dist/` output)
+- `scripts/sync-carbon-css.js` - Syncs Carbon CSS from `node_modules` into `src/vendor/`
 - `tests/domain/` - Domain-level unit tests
 - `tests/ui/` - UI state unit tests
 - `tests/resources/` - CSV fixture resources (gitignored)
 
 ## Install
 
-This project has no runtime dependencies to install.
+This project uses npm-managed frontend dependencies (including Carbon styles).
 
-For tests, install dev tooling from `package.json` (if needed):
+Install all dependencies:
 
 ```bash
 npm ci
 ```
+
+`npm ci` runs a postinstall step that syncs the Carbon stylesheet into `src/vendor/carbon/styles.min.css`.
 
 ## Run Locally
 

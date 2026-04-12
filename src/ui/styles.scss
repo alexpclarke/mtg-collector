@@ -1,0 +1,512 @@
+// Carbon Sass modules — emit reset, theme tokens, type scale, layer tokens,
+// zone selectors (.cds--white / .cds--g10 / .cds--g90 / .cds--g100), and
+// only the component styles actually used by this app.
+@use "@carbon/styles/scss/config";
+@use "@carbon/styles/scss/reset";
+@use "@carbon/styles/scss/themes";
+@use "@carbon/styles/scss/theme" with ($theme: themes.$white);
+@use "@carbon/styles/scss/type";
+@use "@carbon/styles/scss/layer";
+@use "@carbon/styles/scss/zone";
+@use "@carbon/styles/scss/spacing" as spacing;
+@use "@carbon/styles/scss/breakpoint" as bp;
+
+// Components
+@use "@carbon/styles/scss/components/accordion";
+@use "@carbon/styles/scss/components/button";
+@use "@carbon/styles/scss/components/checkbox";
+@use "@carbon/styles/scss/components/code-snippet";
+@use "@carbon/styles/scss/components/data-table";
+@use "@carbon/styles/scss/components/file-uploader";
+@use "@carbon/styles/scss/components/link";
+@use "@carbon/styles/scss/components/modal";
+@use "@carbon/styles/scss/components/notification";
+@use "@carbon/styles/scss/components/number-input";
+@use "@carbon/styles/scss/components/popover";
+@use "@carbon/styles/scss/components/tile";
+@use "@carbon/styles/scss/components/tooltip";
+@use "@carbon/styles/scss/components/text-input";
+
+// App styles
+
+body {
+  margin: 0;
+  background: var(--cds-background);
+}
+
+.app-shell {
+  /* Intentional: keeps reading width comfortable on large desktops. */
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: spacing.$spacing-07 spacing.$spacing-05 spacing.$spacing-09;
+}
+
+.section-gap {
+  margin-top: spacing.$spacing-04;
+}
+
+.title-wrap {
+  margin-bottom: spacing.$spacing-02;
+}
+
+.top-box {
+  display: flex;
+  flex-direction: column;
+  gap: spacing.$spacing-07;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: spacing.$spacing-05;
+  align-items: stretch;
+  margin-top: spacing.$spacing-05;
+}
+
+.controls-upload {
+  min-width: 0;
+}
+
+.controls-upload .cds--file__drop-container {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.controls-upload .cds--file__drop-container .cds--file-filename {
+  display: block;
+  margin-top: spacing.$spacing-02;
+}
+
+.controls-secondary {
+  display: flex;
+  justify-content: center;
+  margin-top: spacing.$spacing-05;
+}
+
+.controls-run {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.settings-accordion {
+  margin-top: spacing.$spacing-03;
+}
+
+.settings-accordion .cds--accordion__content {
+  padding-inline: 0;
+}
+
+.error {
+  margin-top: spacing.$spacing-05;
+}
+
+/* Override margins when inside top-box to use flex gap instead */
+.top-box .controls,
+.top-box .error {
+  margin-top: 0;
+}
+
+.top-box .settings-accordion {
+  margin-top: spacing.$spacing-02;
+}
+
+.top-box .controls-secondary {
+  margin-top: spacing.$spacing-02;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: spacing.$spacing-05;
+  width: 100%;
+}
+
+.settings-item {
+  position: relative;
+  padding: spacing.$spacing-05;
+  transition: background-color 120ms ease-in-out;
+}
+
+.settings-item:hover {
+  background: var(--cds-layer-hover-01);
+}
+
+.settings-item--toggle {
+  cursor: pointer;
+}
+
+.settings-item--toggle .cds--label {
+  cursor: pointer;
+}
+
+.settings-item:not(.settings-item--toggle) {
+  cursor: text;
+}
+
+.settings-item:not(.settings-item--toggle) .cds--label {
+  cursor: text;
+}
+
+.settings-item-head {
+  min-height: spacing.$spacing-07;
+  padding-inline-end: calc(#{spacing.$spacing-07} + #{spacing.$spacing-03});
+  margin-bottom: 0;
+}
+
+.settings-info {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: spacing.$spacing-07;
+  height: spacing.$spacing-07;
+  flex: 0 0 spacing.$spacing-07;
+}
+
+.settings-info .cds--tooltip-trigger__wrapper,
+.settings-info .settings-info-trigger {
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+}
+
+.settings-info .settings-info-trigger {
+  align-items: center;
+  justify-content: center;
+  color: var(--cds-icon-secondary);
+  cursor: help;
+  outline: none;
+}
+
+.settings-info .settings-info-icon {
+  fill: currentcolor;
+}
+
+.settings-info .settings-info-trigger:focus-visible {
+  outline: 2px solid var(--cds-focus);
+  outline-offset: 2px;
+}
+
+.settings-tooltip {
+  max-width: min(18rem, calc(100vw - #{spacing.$spacing-07}));
+  background-color: var(--cds-popover-background-color, var(--cds-background-inverse));
+  color: var(--cds-popover-text-color, var(--cds-text-inverse));
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.settings-input {
+  max-width: none;
+}
+
+.settings-toggle-row {
+  min-height: spacing.$spacing-07;
+  display: flex;
+  align-items: center;
+}
+
+.settings-toggle-row .cds--checkbox-label {
+  padding-inline-start: calc(1.25rem + #{spacing.$spacing-03});
+}
+
+.metrics {
+  display: grid;
+
+  /* Intentional minimum ensures metric tiles do not collapse below readable width. */
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: spacing.$spacing-04;
+}
+
+.metric-title {
+  color: var(--cds-text-secondary);
+}
+
+.metric-value {
+  margin-top: spacing.$spacing-02;
+}
+
+.missing-table {
+  margin-top: spacing.$spacing-04;
+}
+
+.missing-row-link {
+  cursor: pointer;
+}
+
+.missing-row-link:hover {
+  background: var(--cds-layer-hover-01);
+}
+
+.missing-row-link:focus {
+  outline: 2px solid var(--cds-focus);
+  outline-offset: -2px;
+}
+
+.box-card {
+  margin-top: spacing.$spacing-04;
+}
+
+.box-top {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: spacing.$spacing-04;
+  align-items: center;
+}
+
+.box-index {
+  /* Intentional: circular index badge size tuned for heading row visual balance. */
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 1px solid var(--cds-border-strong-01);
+  color: var(--cds-text-primary);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.box-label-link {
+  justify-self: start;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--cds-text-primary);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: none;
+}
+
+.box-label-link:hover,
+.box-label-link.cds--link:hover {
+  color: var(--cds-link-primary-hover);
+  text-decoration: underline;
+}
+
+.box-label-link:focus {
+  outline: 2px solid var(--cds-focus);
+  outline-offset: 2px;
+}
+
+.box-total {
+  color: var(--cds-text-secondary);
+  grid-column: 1 / span 2;
+}
+
+.track {
+  margin-top: spacing.$spacing-04;
+
+  /* Intentional: slim utilization bar reads better than a token step here. */
+  height: 0.85rem;
+  border: 1px solid var(--cds-border-subtle);
+  overflow: hidden;
+  background: var(--cds-layer-accent-01);
+  display: flex;
+}
+
+.segment {
+  height: 100%;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.segment:hover,
+.segment:focus {
+  filter: brightness(1.08);
+}
+
+.segment:focus {
+  outline: 2px solid var(--cds-focus);
+  outline-offset: -2px;
+}
+
+.segment-tooltip {
+  margin-top: spacing.$spacing-04;
+  border-left: 3px solid var(--cds-border-interactive);
+}
+
+.segment-tooltip-floating {
+  position: fixed;
+  margin-top: 0;
+
+  /* Intentional cap keeps tooltip readable while allowing viewport shrink. */
+  width: min(420px, calc(100vw - #{spacing.$spacing-07}));
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.segment-tooltip-grid {
+  margin-top: spacing.$spacing-03;
+  display: grid;
+
+  /* Intentional fixed label column for stable key/value alignment. */
+  grid-template-columns: 132px 1fr;
+  gap: spacing.$spacing-02 spacing.$spacing-04;
+}
+
+.segment-tooltip-label {
+  color: var(--cds-text-secondary);
+}
+
+.codes {
+  margin-top: spacing.$spacing-04;
+  font-size: var(--cds-code-01-font-size);
+  color: var(--cds-text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.code-link {
+  font: inherit;
+  color: var(--cds-text-primary);
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.code-link:hover,
+.active-code-link {
+  color: var(--set-code-color, var(--cds-link-primary-hover));
+  text-decoration: underline;
+}
+
+.code-link:focus {
+  outline: 2px solid var(--cds-focus);
+  outline-offset: 2px;
+}
+
+.app-modal-content {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.card-row {
+  display: flex;
+  gap: spacing.$spacing-05;
+  align-items: center;
+  padding: spacing.$spacing-03 0;
+  border-bottom: 1px solid var(--cds-border-subtle);
+}
+
+.card-row:last-child {
+  border-bottom: none;
+}
+
+.card-row-link {
+  cursor: pointer;
+}
+
+.card-row-link:hover {
+  background: var(--cds-layer-hover-01);
+}
+
+.card-row-link:focus {
+  outline: 2px solid var(--cds-focus);
+  outline-offset: -2px;
+}
+
+.card-count {
+  flex-shrink: 0;
+
+  /* Intentional: fixed floor avoids wrapping count labels. */
+  min-width: 60px;
+  color: var(--cds-text-secondary);
+  font-weight: 500;
+}
+
+.card-number {
+  flex-shrink: 0;
+
+  /* Intentional: fixed floor keeps collector numbers aligned in list rows. */
+  min-width: 50px;
+  color: var(--cds-text-secondary);
+  font-size: var(--cds-code-01-font-size);
+  font-family: var(--cds-code-01-font-family, monospace);
+}
+
+.card-name {
+  flex: 1;
+  color: var(--cds-text-primary);
+}
+
+.card-link {
+  color: inherit;
+}
+
+.card-row-link:hover .card-link,
+.card-row-link:focus .card-link {
+  text-decoration: underline;
+  color: var(--cds-link-primary-hover);
+}
+
+.foil-indicator {
+  color: var(--cds-text-primary);
+  font-weight: bold;
+  margin-left: spacing.$spacing-02;
+}
+
+.set-group {
+  margin-bottom: spacing.$spacing-06;
+}
+
+.set-group:last-child {
+  margin-bottom: 0;
+}
+
+.set-header {
+  padding: spacing.$spacing-04 0;
+  margin-top: spacing.$spacing-04;
+  margin-bottom: spacing.$spacing-03;
+  border-bottom: 2px solid var(--cds-border-subtle);
+  color: var(--cds-text-primary);
+  width: 100%;
+  text-align: left;
+}
+
+.set-header-link {
+  cursor: pointer;
+  color: var(--cds-link-primary);
+  background: none;
+  border: 0;
+  font: inherit;
+}
+
+.set-header-link:hover {
+  color: var(--cds-link-primary-hover);
+  text-decoration: underline;
+}
+
+@include bp.breakpoint-up("md") {
+  .controls-secondary {
+    justify-content: flex-end;
+  }
+
+  .controls-run {
+    width: auto;
+    align-self: flex-end;
+  }
+
+  .settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@include bp.breakpoint-up("lg") {
+  .settings-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .box-top {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .box-total {
+    grid-column: auto;
+  }
+}
