@@ -97,6 +97,7 @@ npm run clean
 
 - `.github/workflows/ci.yml` runs on push to `main` and pull requests:
 	- `npm ci`
+	- `npm run lint`
 	- `npm test`
 	- `npm run build`
 - `.github/workflows/deploy.yml` deploys to GitHub Pages using official Pages actions:
