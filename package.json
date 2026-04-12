@@ -4,6 +4,9 @@
   "description": "Build script for static dist output.",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "sync:styles:dist": "sass --style=compressed --load-path=node_modules --silence-deprecation=if-function src/ui/styles.scss dist/assets/styles.min.css --no-source-map",
     "bundle:js:dist": "esbuild src/main.js --bundle --minify --format=esm --target=es2019 --outfile=dist/assets/app.min.js",
@@ -21,13 +24,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "esbuild": "^0.25.9",
+    "esbuild": "^0.28.0",
     "eslint": "^10.2.0",
     "globals": "^17.5.0",
     "html-minifier-terser": "^7.2.0",
     "sass": "^1.93.2",
     "stylelint": "^17.7.0",
-    "stylelint-config-standard-scss": "^17.0.0",
-    "stylelint-config-standard": "^40.0.0"
+    "stylelint-config-standard": "^40.0.0",
+    "stylelint-config-standard-scss": "^17.0.0"
   }
 }
