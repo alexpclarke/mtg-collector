@@ -1,5 +1,5 @@
 {
-  "name": "box-packer-vue-spa-prototype",
+  "name": "mtg-collector",
   "version": "1.0.0",
   "description": "Build script for static dist output.",
   "private": true,

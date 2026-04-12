@@ -1,11 +1,9 @@
 # Box Packer
 
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
-[![Deploy to GitHub Pages](https://github.com/OWNER/REPO/actions/workflows/deploy.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/deploy.yml)
+[![CI](https://github.com/alexpclarke/mtg-collector/actions/workflows/ci.yml/badge.svg)](https://github.com/alexpclarke/mtg-collector/actions/workflows/ci.yml)
+[![Deploy to GitHub Pages](https://github.com/alexpclarke/mtg-collector/actions/workflows/deploy.yml/badge.svg)](https://github.com/alexpclarke/mtg-collector/actions/workflows/deploy.yml)
 
 A browser-based Vue app for packing MTG inventory CSV data into box groups, with Scryfall set metadata lookup and review reporting.
-
-Replace `OWNER/REPO` in badge URLs with your GitHub repository path after first push.
 
 ## Requirements
 
