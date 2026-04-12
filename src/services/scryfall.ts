@@ -1,3 +1,4 @@
+// @ts-nocheck
 const SCRYFALL_SETS_URL = "https://api.scryfall.com/sets";
 const SCRYFALL_CARD_BY_ID_URL = "https://api.scryfall.com/cards";
 const CACHE_KEY = "box-packer-scryfall-sets-v1";

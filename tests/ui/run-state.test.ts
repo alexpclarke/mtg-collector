@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resetRunOutputRefs, applyRunFailure } from "../../src/ui/run-state.js";
+import { resetRunOutputRefs, applyRunFailure } from "../../src/ui/run-state.ts";
 
 function ref(value) {
   return { value };

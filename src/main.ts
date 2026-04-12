@@ -1,8 +1,9 @@
+// @ts-nocheck
 const { createApp, ref, computed, watch, nextTick } = Vue;
-import { compareCollectorNumbers, sortCardsForDisplay, sortNeedsReviewRows } from "./domain/sorting.js";
-import { splitSetIntoCapacityChunks } from "./domain/packing.js";
-import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.js";
-import { loadScryfallSets, resolveCardsByScryfallId, applyScryfallResolutionToRows } from "./services/scryfall.js";
+import { compareCollectorNumbers, sortCardsForDisplay, sortNeedsReviewRows } from "./domain/sorting.ts";
+import { splitSetIntoCapacityChunks } from "./domain/packing.ts";
+import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
+import { loadScryfallSets, resolveCardsByScryfallId, applyScryfallResolutionToRows } from "./services/scryfall.ts";
 
 const DEFAULT_BOX_CAPACITY = 1200;
 const DEFAULT_START_YEAR = 1993;

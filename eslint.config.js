@@ -3,11 +3,11 @@ import globals from "globals";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: ["dist/**", "node_modules/**", "**/*.d.ts"],
   },
   js.configs.recommended,
   {
-    files: ["src/**/*.js"],
+    files: ["src/**/*.js", "src/**/*.ts"],
     languageOptions: {
       sourceType: "module",
       globals: {
@@ -18,7 +18,7 @@ export default [
     },
   },
   {
-    files: ["scripts/**/*.js", "tests/**/*.mjs"],
+    files: ["scripts/**/*.js", "tests/**/*.mjs", "tests/**/*.ts"],
     languageOptions: {
       sourceType: "module",
       globals: {

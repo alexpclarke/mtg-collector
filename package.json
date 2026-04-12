@@ -9,7 +9,7 @@
   },
   "scripts": {
     "sync:styles:dist": "sass --style=compressed --load-path=node_modules --silence-deprecation=if-function src/ui/styles.scss dist/assets/styles.min.css --no-source-map",
-    "bundle:js:dist": "esbuild src/main.js --bundle --minify --format=esm --target=es2019 --outfile=dist/assets/app.min.js",
+    "bundle:js:dist": "esbuild src/main.ts --bundle --minify --format=esm --target=es2019 --outfile=dist/assets/app.min.js",
     "optimize:dist": "node scripts/optimize-dist.js",
     "build": "node scripts/build.js && npm run sync:styles:dist && npm run bundle:js:dist && npm run optimize:dist",
     "dev": "npm run build && npx serve dist",
@@ -17,13 +17,15 @@
     "serve": "npx serve dist",
     "lint": "eslint . && stylelint 'src/**/*.scss' --fix",
     "clean": "rm -rf dist",
-    "test": "node --test"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@carbon/styles": "1.75.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^24.5.2",
     "esbuild": "^0.28.0",
     "eslint": "^10.2.0",
     "globals": "^17.5.0",
@@ -31,6 +33,8 @@
     "sass": "^1.93.2",
     "stylelint": "^17.7.0",
     "stylelint-config-standard": "^40.0.0",
-    "stylelint-config-standard-scss": "^17.0.0"
+    "stylelint-config-standard-scss": "^17.0.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }

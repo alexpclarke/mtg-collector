@@ -14,7 +14,7 @@ async function buildIndexHtml() {
   const source = await fs.readFile("index.html", "utf8");
   const rewritten = source
     .replace('./src/ui/styles.css', './assets/styles.min.css')
-    .replace('./src/main.js', './assets/app.min.js');
+    .replace('./src/main.ts', './assets/app.min.js');
 
   const minified = await minify(rewritten, {
     collapseWhitespace: true,

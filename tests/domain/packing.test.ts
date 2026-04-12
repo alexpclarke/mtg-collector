@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { splitSetIntoCapacityChunks } from "../../src/domain/packing.js";
+import { splitSetIntoCapacityChunks } from "../../src/domain/packing.ts";
 
 test("given an oversized set when chunking by capacity then full chunks are created first and a final remainder chunk is left", () => {
   const setInfo = {

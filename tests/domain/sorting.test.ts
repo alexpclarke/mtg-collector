@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { compareCollectorNumbers, sortCardsForDisplay, sortNeedsReviewRows } from "../../src/domain/sorting.js";
+import { compareCollectorNumbers, sortCardsForDisplay, sortNeedsReviewRows } from "../../src/domain/sorting.ts";
 
 test("given mixed collector numbers when sorting then numeric order is applied before lexical suffix variants", () => {
   const values = ["10", "2", "12a", "12", "1"];
