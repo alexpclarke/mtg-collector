@@ -1,0 +1,19 @@
+{
+  "name": "box-packer-vue-spa-prototype",
+  "version": "1.0.0",
+  "description": "Build script for static dist output.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "serve": "npx serve dist",
+    "lint": "eslint .",
+    "clean": "rm -rf dist",
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.1",
+    "eslint": "^9.25.1",
+    "globals": "^15.15.0"
+  }
+}
