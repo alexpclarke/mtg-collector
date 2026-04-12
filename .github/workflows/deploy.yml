@@ -21,12 +21,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -45,9 +42,6 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v6
-
       - name: Package Pages artifact
         run: |
           tar -cf github-pages.tar -C dist .
@@ -62,6 +56,18 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages
