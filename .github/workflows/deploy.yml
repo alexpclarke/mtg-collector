@@ -42,19 +42,10 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Package Pages artifact
-        run: |
-          tar -cf github-pages.tar -C dist .
-          gzip -9 github-pages.tar
-
       - name: Upload Pages artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-pages-artifact@v4
         with:
-          name: github-pages
-          path: ./github-pages.tar.gz
-          archive: false
-          if-no-files-found: error
-          retention-days: 1
+          path: ./dist
 
   deploy:
     needs: build
@@ -69,5 +60,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
-        with:
-          artifact_name: github-pages
