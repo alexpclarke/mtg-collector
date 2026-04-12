@@ -757,6 +757,43 @@ createApp({
       return setsByIndex;
     }
 
+    function boxModalColumns(box) {
+      const groups = cardsForBox(box);
+      if (!groups.length) return [];
+
+      // O(n) split-point minimization: find split that minimizes column height difference
+      // Estimate visual height: header + cards + spacer (margin) after each set except last in column
+      // Assume: header = 0.5, card = 1, spacer = 0.5 (relative units; adjust as needed)
+      const HEADER_UNIT = 0.5;
+      const CARD_UNIT = 1;
+      const SPACER_UNIT = 0.5;
+      const groupHeights = groups.map(g => HEADER_UNIT + (g.cards?.length || 0) * CARD_UNIT);
+      // Precompute prefix sums for fast column height calculation including spacers
+      const prefixHeights = [0];
+      for (let i = 0; i < groupHeights.length; ++i) {
+        prefixHeights.push(prefixHeights[i] + groupHeights[i]);
+      }
+      let minDiff = Infinity;
+      let bestSplit = 1;
+      const n = groups.length;
+      for (let split = 1; split <= n; ++split) {
+        // left: groups 0..split-1, right: split..n-1
+        // Each column gets (count-1) spacers if count > 0
+        const leftCount = split;
+        const rightCount = n - split;
+        const leftHeight = prefixHeights[split] + (leftCount > 1 ? (leftCount - 1) * SPACER_UNIT : 0);
+        const rightHeight = prefixHeights[n] - prefixHeights[split] + (rightCount > 1 ? (rightCount - 1) * SPACER_UNIT : 0);
+        const diff = Math.abs(leftHeight - rightHeight);
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestSplit = split;
+        }
+      }
+      const firstColumn = groups.slice(0, bestSplit);
+      const secondColumn = groups.slice(bestSplit);
+      return [firstColumn, secondColumn].filter(col => col.length);
+    }
+
     function foreignCardsBySet(setInfo) {
       const groups = new Map();
       for (const card of setInfo?.cards || []) {
@@ -978,6 +1015,7 @@ createApp({
       onSegmentLeave,
       isHoveredSegment,
       cardsForBox,
+      boxModalColumns,
       foreignCardsBySet,
       cardRowKey,
       openExternalLink,
@@ -1361,32 +1399,42 @@ createApp({
               </svg>
             </button>
           </div>
-          <div class="cds--modal-content app-modal-content">
-            <div
-              v-for="setGroup in cardsForBox(boxes[selectedBoxIndex])"
-              :key="setGroup.setInfo.code"
-              class="set-group"
-            >
-              <button
-                type="button"
-                class="set-header set-header-link cds--link cds--productive-heading-02"
-                @click="selectedSetInfo = setGroup.setInfo"
-              >
-                {{ setGroup.setInfo.name }} ({{ formatSetCode(setGroup.setInfo.code) }})
-              </button>
+          <div class="cds--modal-content app-modal-content box-modal-content">
+            <div class="set-columns">
               <div
-                class="card-row cds--body-compact-01"
-                v-for="card in setGroup.cards"
-                :key="cardRowKey(card)"
-                :class="{ 'card-row-link': card.scryfallId }"
-                :tabindex="card.scryfallId ? 0 : undefined"
-                @click="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                @keydown.enter.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                @keydown.space.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                v-for="(column, columnIndex) in boxModalColumns(boxes[selectedBoxIndex])"
+                :key="'box-column-' + columnIndex"
+                class="set-column"
               >
-                <span class="card-count">{{ card.count }}x</span>
-                <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                <span class="card-name" :class="{ 'card-link': card.scryfallId }">{{ card.name }}<span v-if="card.foil" class="foil-indicator">★</span></span>
+                <div
+                  v-for="setGroup in column"
+                  :key="setGroup.setInfo.code"
+                  class="set-group"
+                >
+                  <button
+                    type="button"
+                    class="set-header set-header-link cds--link cds--productive-heading-02"
+                    @click="selectedSetInfo = setGroup.setInfo"
+                  >
+                    {{ setGroup.setInfo.name }} ({{ formatSetCode(setGroup.setInfo.code) }})
+                  </button>
+                  <div class="card-list">
+                    <div
+                      class="cds--tile card-row cds--body-compact-01"
+                      v-for="card in setGroup.cards"
+                      :key="cardRowKey(card)"
+                      :class="{ 'card-row-link': card.scryfallId }"
+                      :tabindex="card.scryfallId ? 0 : undefined"
+                      @click="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                      @keydown.enter.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                      @keydown.space.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                    >
+                      <span class="card-count">{{ card.count }}x</span>
+                      <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
+                      <span class="card-name" :class="{ 'card-link': card.scryfallId }">{{ card.name }}<span v-if="card.foil" class="foil-indicator">★</span></span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1414,7 +1462,7 @@ createApp({
               </svg>
             </button>
           </div>
-          <div class="cds--modal-content app-modal-content">
+          <div class="cds--modal-content app-modal-content set-modal-content">
             <template v-if="selectedSetInfo.setType === 'foreign-language'">
               <div
                 v-for="setGroup in foreignCardsBySet(selectedSetInfo)"
@@ -1422,36 +1470,39 @@ createApp({
                 class="set-group"
               >
                 <div class="set-header cds--productive-heading-02">{{ setGroup.name }} ({{ setGroup.code }})</div>
-                <div
-                  class="card-row cds--body-compact-01"
-                  v-for="card in setGroup.cards"
-                  :key="cardRowKey(card)"
-                  :class="{ 'card-row-link': card.scryfallId }"
-                  :tabindex="card.scryfallId ? 0 : undefined"
-                  @click="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                  @keydown.enter.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                  @keydown.space.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                >
-                  <span class="card-count">{{ card.count }}x</span>
-                  <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                  <span class="card-name" :class="{ 'card-link': card.scryfallId }">{{ card.name }}<span v-if="card.foil" class="foil-indicator">★</span></span>
+                <div class="card-list">
+                  <div
+                    class="cds--tile card-row cds--body-compact-01"
+                    v-for="card in setGroup.cards"
+                    :key="cardRowKey(card)"
+                    :class="{ 'card-row-link': card.scryfallId }"
+                    :tabindex="card.scryfallId ? 0 : undefined"
+                    @click="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                    @keydown.enter.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                    @keydown.space.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                  >
+                    <span class="card-count">{{ card.count }}x</span>
+                    <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
+                    <span class="card-name" :class="{ 'card-link': card.scryfallId }">{{ card.name }}<span v-if="card.foil" class="foil-indicator">★</span></span>
+                  </div>
                 </div>
               </div>
             </template>
-            <div
-              v-else
-              class="card-row cds--body-compact-01"
-              v-for="card in (selectedSetInfo.cards || [])"
-              :key="cardRowKey(card)"
-              :class="{ 'card-row-link': card.scryfallId }"
-              :tabindex="card.scryfallId ? 0 : undefined"
-              @click="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-              @keydown.enter.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-              @keydown.space.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-            >
-              <span class="card-count">{{ card.count }}x</span>
-              <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-              <span class="card-name" :class="{ 'card-link': card.scryfallId }">{{ card.name }}<span v-if="card.foil" class="foil-indicator">★</span></span>
+            <div v-else class="card-list">
+              <div
+                class="cds--tile card-row cds--body-compact-01"
+                v-for="card in (selectedSetInfo.cards || [])"
+                :key="cardRowKey(card)"
+                :class="{ 'card-row-link': card.scryfallId }"
+                :tabindex="card.scryfallId ? 0 : undefined"
+                @click="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                @keydown.enter.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                @keydown.space.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+              >
+                <span class="card-count">{{ card.count }}x</span>
+                <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
+                <span class="card-name" :class="{ 'card-link': card.scryfallId }">{{ card.name }}<span v-if="card.foil" class="foil-indicator">★</span></span>
+              </div>
             </div>
           </div>
         </div>

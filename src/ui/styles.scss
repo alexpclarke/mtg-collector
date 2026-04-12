@@ -384,11 +384,15 @@ body {
   overflow-y: auto;
 }
 
+.card-list {
+  display: block;
+}
 .card-row {
   display: flex;
   gap: spacing.$spacing-05;
   align-items: center;
-  padding: spacing.$spacing-03 0;
+  min-height: 0;
+    padding: spacing.$spacing-04;
   border-bottom: 1px solid var(--cds-border-subtle);
 }
 
@@ -450,15 +454,20 @@ body {
 }
 
 .set-group {
-  margin-bottom: spacing.$spacing-06;
-}
-
-.set-group:last-child {
   margin-bottom: 0;
 }
 
+.set-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: spacing.$spacing-06;
+}
+
+.set-column {
+  min-width: 0;
+}
 .set-header {
-  padding: spacing.$spacing-04 0;
+  padding: spacing.$spacing-02 0;
   margin-top: spacing.$spacing-04;
   margin-bottom: spacing.$spacing-03;
   border-bottom: 2px solid var(--cds-border-subtle);
@@ -480,7 +489,15 @@ body {
   text-decoration: underline;
 }
 
+.set-modal-content>.card-list .card-row {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+}
 @include bp.breakpoint-up("md") {
+  .set-modal-content>.card-list {
+      column-count: 2;
+      column-gap: spacing.$spacing-05;
+    }
   .controls-secondary {
     justify-content: flex-end;
   }
@@ -507,4 +524,7 @@ body {
   .box-total {
     grid-column: auto;
   }
+.box-modal-content .set-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 }
