@@ -1,11 +1,13 @@
 // @ts-nocheck
 const SCRYFALL_SETS_URL = "https://api.scryfall.com/sets";
-const SCRYFALL_CARD_BY_ID_URL = "https://api.scryfall.com/cards";
+const SCRYFALL_COLLECTION_URL = "https://api.scryfall.com/cards/collection";
 const CACHE_KEY = "box-packer-scryfall-sets-v1";
 const CARD_CACHE_KEY = "box-packer-scryfall-cards-by-id-v1";
 const SETS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CARD_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const CARD_NEGATIVE_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+const BATCH_SIZE = 75;
+const BATCH_RATE_LIMIT_MS = 500;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -57,40 +59,42 @@ function saveCardCache(cache) {
   }
 }
 
-async function fetchCardByScryfallId(id, maxAttempts = 3) {
-  const trimmed = String(id || "").trim();
+async function fetchCardsBatch(ids, maxAttempts = 3) {
+  if (!ids.length) return { ok: true, cards: [], notFound: [] };
+
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      const response = await fetch(`${SCRYFALL_CARD_BY_ID_URL}/${encodeURIComponent(trimmed)}`, {
-        headers: { Accept: "application/json" },
+      const response = await fetch(SCRYFALL_COLLECTION_URL, {
+        method: "POST",
+        headers: { 
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ identifiers: ids.map((id) => ({ id })) }),
       });
 
       if (response.ok) {
         const payload = await response.json();
-        return {
-          ok: true,
-          value: {
-            code: String(payload?.set || "").trim().toLowerCase(),
-            name: String(payload?.set_name || "").trim(),
-            collectorNumber: String(payload?.collector_number || "").trim(),
-            language: String(payload?.lang || "").trim(),
-          },
-        };
-      }
-
-      if (response.status === 404) {
-        return { ok: false, reason: "not-found" };
+        const cards = (payload?.data || []).map((card) => ({
+          id: String(card?.id || "").trim(),
+          code: String(card?.set || "").trim().toLowerCase(),
+          name: String(card?.set_name || "").trim(),
+          collectorNumber: String(card?.collector_number || "").trim(),
+          language: String(card?.lang || "").trim(),
+        }));
+        const notFound = (payload?.not_found || []).map((card) => String(card?.id || card?.name || "").trim()).filter(Boolean);
+        return { ok: true, cards, notFound };
       }
 
       if ((response.status === 429 || response.status >= 500) && attempt < maxAttempts) {
-        await sleep(250 * attempt * attempt);
+        await sleep(BATCH_RATE_LIMIT_MS * attempt * attempt);
         continue;
       }
 
       return { ok: false, reason: `http-${response.status}` };
     } catch {
       if (attempt < maxAttempts) {
-        await sleep(250 * attempt * attempt);
+        await sleep(BATCH_RATE_LIMIT_MS * attempt * attempt);
         continue;
       }
       return { ok: false, reason: "network" };
@@ -120,26 +124,34 @@ export async function resolveCardsByScryfallId(ids) {
     }
   }
 
-  const concurrency = 6;
-  let cursor = 0;
-
-  async function worker() {
-    while (cursor < queue.length) {
-      const index = cursor;
-      cursor += 1;
-      const id = queue[index];
-      const result = await fetchCardByScryfallId(id);
-      if (result.ok && result.value.code && result.value.name) {
-        const value = {
-          code: result.value.code,
-          name: result.value.name,
-          collectorNumber: result.value.collectorNumber,
-          language: result.value.language,
-          fetchedAt: Date.now(),
+  for (let i = 0; i < queue.length; i += BATCH_SIZE) {
+    const batch = queue.slice(i, i + BATCH_SIZE);
+    const result = await fetchCardsBatch(batch);
+    
+    if (result.ok) {
+      for (const card of result.cards) {
+        if (card.code && card.name) {
+          const value = {
+            code: card.code,
+            name: card.name,
+            collectorNumber: card.collectorNumber,
+            language: card.language,
+            fetchedAt: Date.now(),
+          };
+          resolvedById[card.id] = value;
+          cache[card.id] = value;
+        }
+      }
+      
+      for (const notFoundId of result.notFound) {
+        unresolvedIds.push(notFoundId);
+        cache[notFoundId] = {
+          failedAt: Date.now(),
+          reason: "not-found",
         };
-        resolvedById[id] = value;
-        cache[id] = value;
-      } else {
+      }
+    } else {
+      for (const id of batch) {
         unresolvedIds.push(id);
         cache[id] = {
           failedAt: Date.now(),
@@ -147,11 +159,13 @@ export async function resolveCardsByScryfallId(ids) {
         };
       }
     }
+    
+    if (i + BATCH_SIZE < queue.length) {
+      await sleep(BATCH_RATE_LIMIT_MS);
+    }
   }
 
-  await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, () => worker()));
   saveCardCache(cache);
-
   return { resolvedById, unresolvedIds };
 }
 

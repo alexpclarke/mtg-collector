@@ -10,6 +10,7 @@ const DEFAULT_START_YEAR = 1993;
 const DEFAULT_BINDER_TAG = "binder";
 const SPECIAL_BOX_LABEL = "misc.";
 const SPECIAL_BOX_KEYWORDS = ["the list", "mystery booster", "memorabilia"];
+const SPECIAL_BOX_CODES = ["sld"];
 const PROMO_FAMILY_KEYWORDS = [
   "promo",
   "standard showdown",
@@ -218,6 +219,8 @@ function buildSetMappings(scryfallSets) {
 }
 
 function isSpecialSet(setInfo) {
+  const codeLower = String(setInfo.code || "").toLowerCase();
+  if (SPECIAL_BOX_CODES.includes(codeLower)) return true;
   const nameLower = String(setInfo.name || setInfo.code || "").toLowerCase();
   if (SPECIAL_BOX_KEYWORDS.some((k) => nameLower.includes(k))) return true;
   const setType = String(setInfo.setType || "").toLowerCase();
@@ -564,6 +567,7 @@ createApp({
     const settingsTooltipPosition = ref({ x: 0, y: 0 });
     const startAt1993 = ref(true);
     const binderTag = ref(DEFAULT_BINDER_TAG);
+    const resolveScryfallCardNumbers = ref(true);
     const reviewOpen = ref(false);
     const boxModalEl = ref(null);
     const setModalEl = ref(null);
@@ -933,7 +937,7 @@ createApp({
         let rowsToParse = rows;
         let unresolvedLookupIds = [];
 
-        if (reviewIds.length) {
+        if (resolveScryfallCardNumbers.value && reviewIds.length) {
           const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId(reviewIds);
           unresolvedLookupIds = unresolvedIds;
           if (Object.keys(resolvedById).length) {
@@ -1208,6 +1212,42 @@ createApp({
                       />
                     </div>
                   </div>
+
+                  <div class="cds--layer settings-item">
+                    <div class="settings-item-head">
+                      <label class="cds--label" for="resolve-scryfall">Resolve collector numbers from Scryfall</label>
+                      <span class="settings-info">
+                        <span
+                          class="cds--tooltip-trigger__wrapper settings-info-trigger"
+                          tabindex="0"
+                          aria-label="Resolve collector numbers from Scryfall setting info"
+                          :aria-describedby="openSettingsTooltip === 'resolve-scryfall' ? 'settings-tooltip' : undefined"
+                          @mouseenter="showSettingsTooltip('resolve-scryfall', $event)"
+                          @mouseleave="hideSettingsTooltip('resolve-scryfall')"
+                          @mousemove="updateSettingsTooltipPosition($event)"
+                          @focus="showSettingsTooltip('resolve-scryfall', $event)"
+                          @blur="hideSettingsTooltip('resolve-scryfall')"
+                          @keydown.esc.stop.prevent="hideSettingsTooltip('resolve-scryfall')"
+                        >
+                          <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                            <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
+                            <path d="M8.5 11h-1V7h1zm0-6h-1V4h1z"></path>
+                          </svg>
+                        </span>
+                      </span>
+                    </div>
+                    <div class="cds--form-check">
+                      <input
+                        id="resolve-scryfall"
+                        class="cds--checkbox"
+                        type="checkbox"
+                        v-model="resolveScryfallCardNumbers"
+                      />
+                      <label class="cds--checkbox-label" for="resolve-scryfall">
+                        When enabled, collector numbers are resolved from Scryfall. When disabled, the input values are used as-is.
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1342,7 +1382,7 @@ createApp({
       <div
         v-if="openSettingsTooltip"
         id="settings-tooltip"
-        class="settings-tooltip segment-tooltip-floating cds--tile cds--body-compact-01"
+        class="settings-tooltip segment-tooltip-floating cds--tile cds--layer-three cds--body-compact-01"
         :style="{ left: settingsTooltipPosition.x + 'px', top: settingsTooltipPosition.y + 'px' }"
         role="tooltip"
       >
@@ -1351,7 +1391,7 @@ createApp({
 
       <div
         v-if="hoveredSegment"
-        class="segment-tooltip segment-tooltip-floating cds--tile"
+        class="segment-tooltip segment-tooltip-floating cds--tile cds--layer-three"
         :style="{ left: hoverPosition.x + 'px', top: hoverPosition.y + 'px', borderLeftColor: colorForCode((hoveredSegment.setInfo.language || '') + hoveredSegment.setInfo.code) }"
       >
         <p class="cds--productive-heading-01">{{ hoveredSegment.setInfo.name || formatSetCode(hoveredSegment.setInfo.code) }}</p>
