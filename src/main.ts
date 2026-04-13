@@ -618,6 +618,9 @@ createApp({
       if (key === "binder-tag") {
         return "Rows with this exact tag in the Tags column are counted as binder cards and excluded from box packing.";
       }
+      if (key === "resolve-scryfall") {
+        return "When enabled, collector numbers are resolved from Scryfall for accuracy. When disabled, the input values are used as-is.";
+      }
       return "";
     }
 
@@ -1244,7 +1247,7 @@ createApp({
                         v-model="resolveScryfallCardNumbers"
                       />
                       <label class="cds--checkbox-label" for="resolve-scryfall">
-                        When enabled, collector numbers are resolved from Scryfall. When disabled, the input values are used as-is.
+                        Enabled
                       </label>
                     </div>
                   </div>
