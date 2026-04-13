@@ -1216,9 +1216,9 @@ createApp({
                     </div>
                   </div>
 
-                  <div class="cds--layer settings-item">
+                  <div class="cds--layer settings-item settings-item--toggle" @click="toggleSettingCheckbox($event, 'resolve-scryfall')">
                     <div class="settings-item-head">
-                      <label class="cds--label" for="resolve-scryfall">Resolve collector numbers from Scryfall</label>
+                      <span class="cds--label">Resolve collector numbers from Scryfall</span>
                       <span class="settings-info">
                         <span
                           class="cds--tooltip-trigger__wrapper settings-info-trigger"
@@ -1239,7 +1239,7 @@ createApp({
                         </span>
                       </span>
                     </div>
-                    <div class="cds--form-check">
+                    <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
                       <input
                         id="resolve-scryfall"
                         class="cds--checkbox"
