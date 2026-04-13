@@ -933,17 +933,18 @@ createApp({
         const mappings = buildSetMappings(scryfallSets);
         const firstPass = parseRows(rows, mappings, binderTag.value);
 
-        const reviewIds = firstPass.missingEditionList
-          .map((item) => String(item.scryfallId || "").trim())
-          .filter(Boolean);
-
         let rowsToParse = rows;
         let unresolvedLookupIds = [];
 
-        console.log(`[Main] resolveScryfallCardNumbers.value=${resolveScryfallCardNumbers.value}, reviewIds.length=${reviewIds.length}`);
-        if (resolveScryfallCardNumbers.value && reviewIds.length) {
-          console.log(`[Main] Triggering Scryfall resolution for ${reviewIds.length} IDs`);
-          const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId(reviewIds);
+        // Extract all Scryfall IDs from input rows for resolution
+        const allScryfallIds = rows
+          .map((row) => String(row["Scryfall ID"] || "").trim())
+          .filter(Boolean);
+
+        console.log(`[Main] resolveScryfallCardNumbers.value=${resolveScryfallCardNumbers.value}, allScryfallIds.length=${allScryfallIds.length}`);
+        if (resolveScryfallCardNumbers.value && allScryfallIds.length) {
+          console.log(`[Main] Triggering Scryfall resolution for ${allScryfallIds.length} IDs`);
+          const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId(allScryfallIds);
           unresolvedLookupIds = unresolvedIds;
           if (Object.keys(resolvedById).length) {
             console.log(`[Main] Got ${Object.keys(resolvedById).length} resolved cards, applying to rows...`);
