@@ -941,13 +941,10 @@ createApp({
           .map((row) => String(row["Scryfall ID"] || "").trim())
           .filter(Boolean);
 
-        console.log(`[Main] resolveScryfallCardNumbers.value=${resolveScryfallCardNumbers.value}, allScryfallIds.length=${allScryfallIds.length}`);
         if (resolveScryfallCardNumbers.value && allScryfallIds.length) {
-          console.log(`[Main] Triggering Scryfall resolution for ${allScryfallIds.length} IDs`);
           const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId(allScryfallIds);
           unresolvedLookupIds = unresolvedIds;
           if (Object.keys(resolvedById).length) {
-            console.log(`[Main] Got ${Object.keys(resolvedById).length} resolved cards, applying to rows...`);
             rowsToParse = applyScryfallResolutionToRows(rows, resolvedById);
           }
         }
