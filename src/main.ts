@@ -940,10 +940,13 @@ createApp({
         let rowsToParse = rows;
         let unresolvedLookupIds = [];
 
+        console.log(`[Main] resolveScryfallCardNumbers.value=${resolveScryfallCardNumbers.value}, reviewIds.length=${reviewIds.length}`);
         if (resolveScryfallCardNumbers.value && reviewIds.length) {
+          console.log(`[Main] Triggering Scryfall resolution for ${reviewIds.length} IDs`);
           const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId(reviewIds);
           unresolvedLookupIds = unresolvedIds;
           if (Object.keys(resolvedById).length) {
+            console.log(`[Main] Got ${Object.keys(resolvedById).length} resolved cards, applying to rows...`);
             rowsToParse = applyScryfallResolutionToRows(rows, resolvedById);
           }
         }

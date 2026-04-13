@@ -61,6 +61,7 @@ function saveCardCache(cache) {
 
 async function fetchCardsBatch(ids, maxAttempts = 3) {
   if (!ids.length) return { ok: true, cards: [], notFound: [] };
+  console.log(`[Scryfall] Fetching batch of ${ids.length} cards`);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
@@ -75,6 +76,7 @@ async function fetchCardsBatch(ids, maxAttempts = 3) {
 
       if (response.ok) {
         const payload = await response.json();
+        console.log(`[Scryfall] Batch response:`, payload);
         const cards = (payload?.data || []).map((card) => ({
           id: String(card?.id || "").trim(),
           code: String(card?.set || "").trim().toLowerCase(),
@@ -83,16 +85,19 @@ async function fetchCardsBatch(ids, maxAttempts = 3) {
           language: String(card?.lang || "").trim(),
         }));
         const notFound = (payload?.not_found || []).map((card) => String(card?.id || card?.name || "").trim()).filter(Boolean);
+        console.log(`[Scryfall] Found ${cards.length} cards, ${notFound.length} not found`);
         return { ok: true, cards, notFound };
       }
 
+      console.warn(`[Scryfall] HTTP ${response.status}`, await response.text());
       if ((response.status === 429 || response.status >= 500) && attempt < maxAttempts) {
         await sleep(BATCH_RATE_LIMIT_MS * attempt * attempt);
         continue;
       }
 
       return { ok: false, reason: `http-${response.status}` };
-    } catch {
+    } catch (err) {
+      console.error(`[Scryfall] Batch error (attempt ${attempt}):`, err);
       if (attempt < maxAttempts) {
         await sleep(BATCH_RATE_LIMIT_MS * attempt * attempt);
         continue;
@@ -106,6 +111,7 @@ async function fetchCardsBatch(ids, maxAttempts = 3) {
 
 export async function resolveCardsByScryfallId(ids) {
   const uniqueIds = [...new Set(ids.map((x) => String(x || "").trim()).filter((x) => x && isLikelyScryfallId(x)))];
+  console.log(`[Scryfall] Resolving ${uniqueIds.length} unique IDs out of ${ids.length} input`);
   if (!uniqueIds.length) return { resolvedById: {}, unresolvedIds: [] };
 
   const cache = loadCardCache();
@@ -116,16 +122,21 @@ export async function resolveCardsByScryfallId(ids) {
   for (const id of uniqueIds) {
     const cached = cache[id];
     if (cached?.code && cached?.name) {
+      console.log(`[Scryfall] Cache hit (positive): ${id}`);
       resolvedById[id] = cached;
     } else if (cached?.failedAt) {
+      console.log(`[Scryfall] Cache hit (negative): ${id}`);
       unresolvedIds.push(id);
     } else {
       queue.push(id);
     }
   }
 
+  console.log(`[Scryfall] Queue: ${queue.length} IDs need fetching, cache hits: ${Object.keys(resolvedById).length}`);
+
   for (let i = 0; i < queue.length; i += BATCH_SIZE) {
     const batch = queue.slice(i, i + BATCH_SIZE);
+    console.log(`[Scryfall] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} IDs`);
     const result = await fetchCardsBatch(batch);
     
     if (result.ok) {
@@ -151,6 +162,7 @@ export async function resolveCardsByScryfallId(ids) {
         };
       }
     } else {
+      console.warn(`[Scryfall] Batch failed: ${result.reason}`);
       for (const id of batch) {
         unresolvedIds.push(id);
         cache[id] = {
@@ -166,15 +178,20 @@ export async function resolveCardsByScryfallId(ids) {
   }
 
   saveCardCache(cache);
+  console.log(`[Scryfall] Resolution complete: ${Object.keys(resolvedById).length} resolved, ${unresolvedIds.length} unresolved`);
   return { resolvedById, unresolvedIds };
 }
 
 export function applyScryfallResolutionToRows(rows, resolvedById) {
-  return rows.map((row) => {
+  console.log(`[Scryfall] Applying resolution to ${rows.length} rows with ${Object.keys(resolvedById).length} resolved IDs`);
+  let appliedCount = 0;
+  const result = rows.map((row) => {
     const id = String(row["Scryfall ID"] || "").trim();
     const resolved = resolvedById[id];
     if (!resolved) return row;
 
+    appliedCount++;
+    console.log(`[Scryfall] Applied resolution for ${id}: ${resolved.code} - ${resolved.name}`);
     const next = { ...row };
     next["Edition Code"] = resolved.code;
     next.Edition = resolved.name;
@@ -186,6 +203,8 @@ export function applyScryfallResolutionToRows(rows, resolvedById) {
     }
     return next;
   });
+  console.log(`[Scryfall] Applied resolution to ${appliedCount} rows`);
+  return result;
 }
 
 export async function loadScryfallSets() {
