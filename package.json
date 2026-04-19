@@ -27,7 +27,7 @@
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.5.2",
     "esbuild": "^0.28.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.2.1",
     "globals": "^17.5.0",
     "html-minifier-terser": "^7.2.0",
     "sass": "^1.93.2",
