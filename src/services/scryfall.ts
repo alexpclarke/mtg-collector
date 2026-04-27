@@ -1,17 +1,7 @@
 // @ts-nocheck
-const SCRYFALL_SETS_URL = "https://api.scryfall.com/sets";
-const SCRYFALL_COLLECTION_URL = "https://api.scryfall.com/cards/collection";
-const CACHE_KEY = "box-packer-scryfall-sets-v1";
 const CARD_CACHE_KEY = "box-packer-scryfall-cards-by-id-v1";
-const SETS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CARD_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const CARD_NEGATIVE_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
-const BATCH_SIZE = 75;
-const BATCH_RATE_LIMIT_MS = 500;
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function isLikelyScryfallId(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
@@ -59,49 +49,22 @@ function saveCardCache(cache) {
   }
 }
 
-async function fetchCardsBatch(ids, maxAttempts = 3) {
-  if (!ids.length) return { ok: true, cards: [], notFound: [] };
+async function fetchGzJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
+  const ds = new DecompressionStream("gzip");
+  const stream = response.body.pipeThrough(ds);
+  const text = await new Response(stream).text();
+  return JSON.parse(text);
+}
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      const response = await fetch(SCRYFALL_COLLECTION_URL, {
-        method: "POST",
-        headers: { 
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ identifiers: ids.map((id) => ({ id })) }),
-      });
+let _cardIndexPromise = null;
 
-      if (response.ok) {
-        const payload = await response.json();
-        const cards = (payload?.data || []).map((card) => ({
-          id: String(card?.id || "").trim(),
-          code: String(card?.set || "").trim().toLowerCase(),
-          name: String(card?.set_name || "").trim(),
-          collectorNumber: String(card?.collector_number || "").trim(),
-          language: String(card?.lang || "").trim(),
-        }));
-        const notFound = (payload?.not_found || []).map((card) => String(card?.id || card?.name || "").trim()).filter(Boolean);
-        return { ok: true, cards, notFound };
-      }
-
-      if ((response.status === 429 || response.status >= 500) && attempt < maxAttempts) {
-        await sleep(BATCH_RATE_LIMIT_MS * attempt * attempt);
-        continue;
-      }
-
-      return { ok: false, reason: `http-${response.status}` };
-    } catch {
-      if (attempt < maxAttempts) {
-        await sleep(BATCH_RATE_LIMIT_MS * attempt * attempt);
-        continue;
-      }
-      return { ok: false, reason: "network" };
-    }
+function loadCardIndex() {
+  if (!_cardIndexPromise) {
+    _cardIndexPromise = fetchGzJson("./data/cards.json.gz");
   }
-
-  return { ok: false, reason: "unknown" };
+  return _cardIndexPromise;
 }
 
 export async function resolveCardsByScryfallId(ids) {
@@ -124,48 +87,22 @@ export async function resolveCardsByScryfallId(ids) {
     }
   }
 
-  for (let i = 0; i < queue.length; i += BATCH_SIZE) {
-    const batch = queue.slice(i, i + BATCH_SIZE);
-    const result = await fetchCardsBatch(batch);
-    
-    if (result.ok) {
-      for (const card of result.cards) {
-        if (card.code && card.name) {
-          const value = {
-            code: card.code,
-            name: card.name,
-            collectorNumber: card.collectorNumber,
-            language: card.language,
-            fetchedAt: Date.now(),
-          };
-          resolvedById[card.id] = value;
-          cache[card.id] = value;
-        }
-      }
-      
-      for (const notFoundId of result.notFound) {
-        unresolvedIds.push(notFoundId);
-        cache[notFoundId] = {
-          failedAt: Date.now(),
-          reason: "not-found",
-        };
-      }
-    } else {
-      for (const id of batch) {
+  if (queue.length) {
+    const index = await loadCardIndex();
+    for (const id of queue) {
+      const entry = index[id];
+      if (entry) {
+        const value = { ...entry, fetchedAt: Date.now() };
+        resolvedById[id] = value;
+        cache[id] = value;
+      } else {
         unresolvedIds.push(id);
-        cache[id] = {
-          failedAt: Date.now(),
-          reason: result.reason || "unknown",
-        };
+        cache[id] = { failedAt: Date.now(), reason: "not-found" };
       }
     }
-    
-    if (i + BATCH_SIZE < queue.length) {
-      await sleep(BATCH_RATE_LIMIT_MS);
-    }
+    saveCardCache(cache);
   }
 
-  saveCardCache(cache);
   return { resolvedById, unresolvedIds };
 }
 
@@ -189,50 +126,5 @@ export function applyScryfallResolutionToRows(rows, resolvedById) {
 }
 
 export async function loadScryfallSets() {
-  let cached = null;
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (raw) cached = JSON.parse(raw);
-  } catch {
-    cached = null;
-  }
-
-  const now = Date.now();
-  if (Array.isArray(cached?.data) && Number.isFinite(cached?.fetchedAt) && now - cached.fetchedAt <= SETS_CACHE_TTL_MS) {
-    return cached.data;
-  }
-
-  const headers = { Accept: "application/json" };
-  if (cached?.etag) headers["If-None-Match"] = cached.etag;
-  if (cached?.lastModified) headers["If-Modified-Since"] = cached.lastModified;
-
-  try {
-    const response = await fetch(SCRYFALL_SETS_URL, { headers });
-
-    if (response.status === 304 && Array.isArray(cached?.data)) {
-      cached.fetchedAt = now;
-      localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
-      return cached.data;
-    }
-
-    if (!response.ok) {
-      if (Array.isArray(cached?.data)) return cached.data;
-      throw new Error(`Scryfall sets fetch failed: ${response.status}`);
-    }
-
-    const payload = await response.json();
-    if (!Array.isArray(payload?.data)) throw new Error("Unexpected Scryfall payload");
-
-    const next = {
-      data: payload.data,
-      etag: response.headers.get("ETag") || "",
-      lastModified: response.headers.get("Last-Modified") || "",
-      fetchedAt: Date.now(),
-    };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(next));
-    return next.data;
-  } catch (err) {
-    if (Array.isArray(cached?.data)) return cached.data;
-    throw err;
-  }
+  return fetchGzJson("./data/sets.json.gz");
 }
