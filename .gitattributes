@@ -1,0 +1,2 @@
+# Treat gzip files as binary to avoid line-ending mangling and meaningless diffs
+*.gz binary
