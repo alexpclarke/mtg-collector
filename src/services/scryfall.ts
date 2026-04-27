@@ -115,11 +115,8 @@ export function applyScryfallResolutionToRows(rows, resolvedById) {
     const next = { ...row };
     next["Edition Code"] = resolved.code;
     next.Edition = resolved.name;
-    if (!String(next["Card Number"] || "").trim() && resolved.collectorNumber) {
+    if (resolved.collectorNumber) {
       next["Card Number"] = resolved.collectorNumber;
-    }
-    if (!String(next.Language || "").trim() && resolved.language) {
-      next.Language = resolved.language;
     }
     return next;
   });

@@ -77,21 +77,21 @@ test("given row with resolution and blank card number when applying then card nu
   assert.equal(result["Card Number"], "42");
 });
 
-test("given row with resolution and existing card number when applying then card number is not overwritten", () => {
+test("given row with resolution and existing card number when applying then scryfall value overwrites it", () => {
   const row = { "Scryfall ID": ID_IN_INDEX, "Card Number": "99", Edition: "", "Edition Code": "" };
   const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
   const [result] = applyScryfallResolutionToRows([row], resolved);
-  assert.equal(result["Card Number"], "99");
+  assert.equal(result["Card Number"], "42");
 });
 
-test("given row with resolution and blank language when applying then language is filled in", () => {
+test("given row with resolution and blank language when applying then language is left blank", () => {
   const row = { "Scryfall ID": ID_IN_INDEX, Language: "", Edition: "", "Edition Code": "" };
   const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
   const [result] = applyScryfallResolutionToRows([row], resolved);
-  assert.equal(result.Language, "en");
+  assert.equal(result.Language, "");
 });
 
-test("given row with resolution and existing language when applying then language is not overwritten", () => {
+test("given row with resolution and existing language when applying then language is left unchanged", () => {
   const row = { "Scryfall ID": ID_IN_INDEX, Language: "Japanese", Edition: "", "Edition Code": "" };
   const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
   const [result] = applyScryfallResolutionToRows([row], resolved);
