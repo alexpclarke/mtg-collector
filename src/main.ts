@@ -38,6 +38,20 @@ const LANGUAGE_ABBREVIATIONS = {
   Spanish: "ES",
 };
 
+const LANGUAGE_SCRYFALL_CODES = {
+  English: "en",
+  French: "fr",
+  German: "de",
+  Italian: "it",
+  Japanese: "ja",
+  Korean: "ko",
+  Portuguese: "pt",
+  Russian: "ru",
+  Spanish: "es",
+  "Chinese Simplified": "zhs",
+  "Chinese Traditional": "zht",
+};
+
 function applyCarbonTheme(themeClass) {
   const nextTheme = CARBON_THEME_CLASSES.includes(themeClass) ? themeClass : SYSTEM_LIGHT_THEME;
   const targets = [document.documentElement, document.body].filter(Boolean);
@@ -92,6 +106,16 @@ function colorForCode(code) {
 
 function languageAbbreviation(language) {
   return LANGUAGE_ABBREVIATIONS[language] || (language || "UN").slice(0, 2).toUpperCase();
+}
+
+function scryfallCardUrl(card) {
+  const setCode = String(card.setCode || "").toLowerCase();
+  const collectorNumber = String(card.collectorNumber || "");
+  const lang = LANGUAGE_SCRYFALL_CODES[card.language] || "en";
+  if (setCode && collectorNumber) {
+    return `https://scryfall.com/card/${setCode}/${collectorNumber}/${lang}/`;
+  }
+  return `https://scryfall.com/card/${card.scryfallId}`;
 }
 
 function formatSetCode(code) {
@@ -247,12 +271,14 @@ function addCardToEntry(
   scryfallId = null,
   setCode = "",
   setName = "",
-  setReleasedAt = null
+  setReleasedAt = null,
+  language = ""
 ) {
   if (!entry.cardMap) entry.cardMap = new Map();
   const cardNameTrimmed = String(cardName || "(unknown card)").trim() || "(unknown card)";
   const normalizedSetCode = String(setCode || "").trim().toUpperCase();
-  const key = `${cardNameTrimmed}|foil:${foil}|set:${normalizedSetCode}`;
+  const normalizedLanguage = String(language || "").trim();
+  const key = `${cardNameTrimmed}|foil:${foil}|set:${normalizedSetCode}|lang:${normalizedLanguage}`;
   const existing = entry.cardMap.get(key) || {
     name: cardNameTrimmed,
     count: 0,
@@ -262,6 +288,7 @@ function addCardToEntry(
     setCode: normalizedSetCode,
     setName: String(setName || "").trim() || "",
     setReleasedAt: String(setReleasedAt || "").trim() || null,
+    language: normalizedLanguage,
   };
   existing.count += count;
   if (!existing.scryfallId) existing.scryfallId = String(scryfallId || "").trim() || null;
@@ -275,7 +302,7 @@ function finalizeCardList(entry) {
   delete entry.cardMap;
 }
 
-function parseRows(rows, mappings, binderTag) {
+function parseRows(rows, mappings, binderTag, separateForeignLanguage = true) {
   const grouped = new Map();
   const yearsPerCode = new Map();
   const foreign = new Map();
@@ -338,7 +365,7 @@ function parseRows(rows, mappings, binderTag) {
 
     const meta = mappings.metaByCode[code] || nameMatch || { setType: "", hasParentSet: false };
 
-    if (language !== FOREIGN_LANGUAGE_ENGLISH) {
+    if (separateForeignLanguage && language !== FOREIGN_LANGUAGE_ENGLISH) {
       const key = language;
       const existing = foreign.get(key) || {
         code: `lang-${languageAbbreviation(language).toLowerCase()}`,
@@ -354,7 +381,7 @@ function parseRows(rows, mappings, binderTag) {
       existing.count += count;
       existing.codes.push(formatSetCode(code));
       const foil = Boolean(String(row["Foil"] || "").trim());
-      addCardToEntry(existing, cardName, count, collectorNumber, foil, scryfallId, formatSetCode(code), name, releasedAt);
+      addCardToEntry(existing, cardName, count, collectorNumber, foil, scryfallId, formatSetCode(code), name, releasedAt, language);
       foreign.set(key, existing);
       continue;
     }
@@ -387,7 +414,7 @@ function parseRows(rows, mappings, binderTag) {
     };
     existing.count += count;
     const foil = Boolean(String(row["Foil"] || "").trim());
-    addCardToEntry(existing, cardName, count, collectorNumber, foil, scryfallId);
+    addCardToEntry(existing, cardName, count, collectorNumber, foil, scryfallId, formatSetCode(code), name, releasedAt, language);
     grouped.set(key, existing);
   }
 
@@ -452,6 +479,7 @@ function parseRows(rows, mappings, binderTag) {
 }
 
 function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
+  const { firstBoxStartYear = null, separateForeignLanguage = true } = options;
   function closeBox(contents, total, labelOverride = null) {
     if (labelOverride) return { label: labelOverride, totalCount: total, sets: contents };
     const years = contents.map((x) => x.year).filter(Boolean);
@@ -486,8 +514,9 @@ function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
 
   const capacityAdjustedSets = sets.flatMap((s) => splitSetIntoCapacityChunks(s, boxCapacity));
 
-  const foreign = capacityAdjustedSets.filter((s) => s.language && s.language !== FOREIGN_LANGUAGE_ENGLISH);
-  let remaining = capacityAdjustedSets.filter((s) => !(s.language && s.language !== FOREIGN_LANGUAGE_ENGLISH));
+  const isForeignSet = (s) => separateForeignLanguage && s.language && s.language !== FOREIGN_LANGUAGE_ENGLISH;
+  const foreign = capacityAdjustedSets.filter(isForeignSet);
+  let remaining = capacityAdjustedSets.filter((s) => !isForeignSet(s));
 
   const special = remaining.filter(isSpecialSet);
   remaining = remaining.filter((s) => !isSpecialSet(s));
@@ -568,6 +597,7 @@ createApp({
     const startAt1993 = ref(true);
     const binderTag = ref(DEFAULT_BINDER_TAG);
     const resolveScryfallCardNumbers = ref(true);
+    const separateForeignLanguage = ref(true);
     const reviewOpen = ref(false);
     const boxModalEl = ref(null);
     const setModalEl = ref(null);
@@ -620,6 +650,9 @@ createApp({
       }
       if (key === "resolve-scryfall") {
         return "When enabled, collector numbers are resolved from Scryfall for accuracy. When disabled, the input values are used as-is.";
+      }
+      if (key === "separate-foreign") {
+        return "When enabled, non-English cards are grouped together and packed into dedicated Foreign boxes at the end. When disabled, they are packed in with their set by release year.";
       }
       return "";
     }
@@ -931,7 +964,7 @@ createApp({
         ]);
 
         const mappings = buildSetMappings(scryfallSets);
-        const firstPass = parseRows(rows, mappings, binderTag.value);
+        const firstPass = parseRows(rows, mappings, binderTag.value, separateForeignLanguage.value);
 
         let rowsToParse = rows;
         let unresolvedLookupIds = [];
@@ -949,9 +982,10 @@ createApp({
           }
         }
 
-        const parsed = parseRows(rowsToParse, mappings, binderTag.value);
+        const parsed = parseRows(rowsToParse, mappings, binderTag.value, separateForeignLanguage.value);
         const packed = packSetsIntoBoxes(parsed.packable, Number(boxCapacity.value), {
           firstBoxStartYear: startAt1993.value ? DEFAULT_START_YEAR : null,
+          separateForeignLanguage: separateForeignLanguage.value,
         });
 
         boxes.value = packed;
@@ -1032,6 +1066,8 @@ createApp({
       settingsOpen,
       startAt1993,
       binderTag,
+      separateForeignLanguage,
+      resolveScryfallCardNumbers,
       reviewOpen,
       boxModalEl,
       setModalEl,
@@ -1044,6 +1080,7 @@ createApp({
       isForeignBoxLabel,
       formatForeignCodes,
       languageAbbreviation,
+      scryfallCardUrl,
       FOREIGN_BOX_LABEL,
     };
   },
@@ -1217,6 +1254,42 @@ createApp({
                     </div>
                   </div>
 
+                  <div class="cds--layer settings-item settings-item--toggle" @click="toggleSettingCheckbox($event, 'separate-foreign')">
+                    <div class="settings-item-head">
+                      <span class="cds--label">Separate foreign language cards</span>
+                      <span class="settings-info">
+                        <span
+                          class="cds--tooltip-trigger__wrapper settings-info-trigger"
+                          tabindex="0"
+                          aria-label="Separate foreign language cards setting info"
+                          :aria-describedby="openSettingsTooltip === 'separate-foreign' ? 'settings-tooltip' : undefined"
+                          @mouseenter="showSettingsTooltip('separate-foreign', $event)"
+                          @mouseleave="hideSettingsTooltip('separate-foreign')"
+                          @mousemove="updateSettingsTooltipPosition($event)"
+                          @focus="showSettingsTooltip('separate-foreign', $event)"
+                          @blur="hideSettingsTooltip('separate-foreign')"
+                          @keydown.esc.stop.prevent="hideSettingsTooltip('separate-foreign')"
+                        >
+                          <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                            <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
+                            <path d="M8.5 11h-1V7h1zm0-6h-1V4h1z"></path>
+                          </svg>
+                        </span>
+                      </span>
+                    </div>
+                    <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
+                      <input
+                        id="separate-foreign"
+                        class="cds--checkbox"
+                        type="checkbox"
+                        v-model="separateForeignLanguage"
+                      />
+                      <label class="cds--checkbox-label" for="separate-foreign">
+                        Enabled
+                      </label>
+                    </div>
+                  </div>
+
                   <div class="cds--layer settings-item settings-item--toggle" @click="toggleSettingCheckbox($event, 'resolve-scryfall')">
                     <div class="settings-item-head">
                       <span class="cds--label">Resolve collector numbers from Scryfall</span>
@@ -1302,9 +1375,9 @@ createApp({
                       class="missing-row cds--body-compact-01"
                       :class="{ 'missing-row-link': m.scryfallId }"
                       :tabindex="m.scryfallId ? 0 : undefined"
-                      @click="m.scryfallId && openExternalLink('https://scryfall.com/card/' + m.scryfallId)"
-                      @keydown.enter.prevent="m.scryfallId && openExternalLink('https://scryfall.com/card/' + m.scryfallId)"
-                      @keydown.space.prevent="m.scryfallId && openExternalLink('https://scryfall.com/card/' + m.scryfallId)"
+                      @click="m.scryfallId && openExternalLink(scryfallCardUrl({ scryfallId: m.scryfallId, setCode: m.code, collectorNumber: m.collectorNumber, language: m.language }))"
+                      @keydown.enter.prevent="m.scryfallId && openExternalLink(scryfallCardUrl({ scryfallId: m.scryfallId, setCode: m.code, collectorNumber: m.collectorNumber, language: m.language }))"
+                      @keydown.space.prevent="m.scryfallId && openExternalLink(scryfallCardUrl({ scryfallId: m.scryfallId, setCode: m.code, collectorNumber: m.collectorNumber, language: m.language }))"
                     >
                       <td>{{ m.count }}x</td>
                       <td>{{ m.name }}</td>
@@ -1471,13 +1544,13 @@ createApp({
                       :key="cardRowKey(card)"
                       :class="{ 'card-row-link': card.scryfallId }"
                       :tabindex="card.scryfallId ? 0 : undefined"
-                      @click="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                      @keydown.enter.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                      @keydown.space.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                      @click="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
+                      @keydown.enter.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
+                      @keydown.space.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
                     >
                       <span class="card-count">{{ card.count }}x</span>
                       <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                      <span class="card-name" :class="{ 'card-link': card.scryfallId }">{{ card.name }}<span v-if="card.foil" class="foil-indicator">★</span></span>
+                      <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? scryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
                     </div>
                   </div>
                 </div>
@@ -1523,13 +1596,13 @@ createApp({
                     :key="cardRowKey(card)"
                     :class="{ 'card-row-link': card.scryfallId }"
                     :tabindex="card.scryfallId ? 0 : undefined"
-                    @click="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                    @keydown.enter.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                    @keydown.space.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                    @click="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
+                    @keydown.enter.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
+                    @keydown.space.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
                   >
                     <span class="card-count">{{ card.count }}x</span>
                     <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                    <span class="card-name" :class="{ 'card-link': card.scryfallId }">{{ card.name }}<span v-if="card.foil" class="foil-indicator">★</span></span>
+                    <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? scryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
                   </div>
                 </div>
               </div>
@@ -1541,13 +1614,13 @@ createApp({
                 :key="cardRowKey(card)"
                 :class="{ 'card-row-link': card.scryfallId }"
                 :tabindex="card.scryfallId ? 0 : undefined"
-                @click="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                @keydown.enter.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
-                @keydown.space.prevent="card.scryfallId && openExternalLink('https://scryfall.com/card/' + card.scryfallId)"
+                @click="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
+                @keydown.enter.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
+                @keydown.space.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
               >
                 <span class="card-count">{{ card.count }}x</span>
                 <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                <span class="card-name" :class="{ 'card-link': card.scryfallId }">{{ card.name }}<span v-if="card.foil" class="foil-indicator">★</span></span>
+                <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? scryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
               </div>
             </div>
           </div>

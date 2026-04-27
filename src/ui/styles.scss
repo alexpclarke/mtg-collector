@@ -489,12 +489,24 @@ body {
   color: var(--cds-link-primary-hover);
 }
 
+.card-row-link:hover .foil-indicator,
+.card-row-link:focus .foil-indicator,
+.card-row-link:hover .card-language-tag,
+.card-row-link:focus .card-language-tag {
+  color: var(--cds-link-primary-hover);
+}
 .foil-indicator {
   color: var(--cds-text-primary);
   font-weight: bold;
   margin-left: spacing.$spacing-02;
 }
 
+.card-language-tag {
+  color: var(--cds-text-secondary);
+  font-size: 0.75em;
+  font-weight: normal;
+  margin-left: spacing.$spacing-01;
+}
 .set-group {
   margin-bottom: 0;
 }
