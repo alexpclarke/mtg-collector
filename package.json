@@ -28,7 +28,7 @@
     "@types/node": "^25.6.0",
     "esbuild": "^0.28.0",
     "eslint": "^10.2.0",
-    "globals": "^17.5.0",
+    "globals": "^17.6.0",
     "html-minifier-terser": "^7.2.0",
     "sass": "^1.93.2",
     "stylelint": "^17.10.0",
