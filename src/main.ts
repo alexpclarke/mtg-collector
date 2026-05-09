@@ -6,7 +6,7 @@
 // @ts-nocheck
 const { createApp, ref, computed, watch, nextTick } = Vue;
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
-import { loadScryfallSets, resolveCardsByScryfallId, applyScryfallResolutionToRows, scryfallCardUrl } from "./services/scryfall.ts";
+import { loadScryfallSets, resolveCardsByIdentifier, applyResolutionToInventoryRows, buildScryfallCardUrl } from "./services/scryfall.ts";
 import { DEFAULT_BOX_CAPACITY, DEFAULT_START_YEAR, DEFAULT_BINDER_TAG, FOREIGN_BOX_LABEL } from "./domain/constants.ts";
 import "./ui/theme.ts";
 import { buildSetMappings } from "./domain/sets.ts";
@@ -308,10 +308,10 @@ createApp({
           .filter(Boolean);
 
         if (resolveScryfallCardNumbers.value && allScryfallIds.length) {
-          const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId(allScryfallIds);
-          unresolvedLookupIds = unresolvedIds;
-          if (Object.keys(resolvedById).length) {
-            rowsToParse = applyScryfallResolutionToRows(rows, resolvedById);
+          const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier(allScryfallIds);
+          unresolvedLookupIds = unresolvedIdentifiers;
+          if (Object.keys(resolvedByIdentifier).length) {
+            rowsToParse = applyResolutionToInventoryRows(rows, resolvedByIdentifier);
           }
         }
 
@@ -413,7 +413,7 @@ createApp({
       isForeignBoxLabel,
       formatForeignCodes,
       languageAbbreviation,
-      scryfallCardUrl,
+      buildScryfallCardUrl,
       FOREIGN_BOX_LABEL,
     };
   },
@@ -708,9 +708,9 @@ createApp({
                       class="missing-row cds--body-compact-01"
                       :class="{ 'missing-row-link': m.scryfallId }"
                       :tabindex="m.scryfallId ? 0 : undefined"
-                      @click="m.scryfallId && openExternalLink(scryfallCardUrl({ scryfallId: m.scryfallId, setCode: m.code, collectorNumber: m.collectorNumber, language: m.language }))"
-                      @keydown.enter.prevent="m.scryfallId && openExternalLink(scryfallCardUrl({ scryfallId: m.scryfallId, setCode: m.code, collectorNumber: m.collectorNumber, language: m.language }))"
-                      @keydown.space.prevent="m.scryfallId && openExternalLink(scryfallCardUrl({ scryfallId: m.scryfallId, setCode: m.code, collectorNumber: m.collectorNumber, language: m.language }))"
+                      @click="m.scryfallId && openExternalLink(buildScryfallCardUrl({ scryfallId: m.scryfallId, setCode: m.code, collectorNumber: m.collectorNumber, language: m.language }))"
+                      @keydown.enter.prevent="m.scryfallId && openExternalLink(buildScryfallCardUrl({ scryfallId: m.scryfallId, setCode: m.code, collectorNumber: m.collectorNumber, language: m.language }))"
+                      @keydown.space.prevent="m.scryfallId && openExternalLink(buildScryfallCardUrl({ scryfallId: m.scryfallId, setCode: m.code, collectorNumber: m.collectorNumber, language: m.language }))"
                     >
                       <td>{{ m.count }}x</td>
                       <td>{{ m.name }}</td>
@@ -877,13 +877,13 @@ createApp({
                       :key="cardRowKey(card)"
                       :class="{ 'card-row-link': card.scryfallId }"
                       :tabindex="card.scryfallId ? 0 : undefined"
-                      @click="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
-                      @keydown.enter.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
-                      @keydown.space.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
+                      @click="card.scryfallId && openExternalLink(buildScryfallCardUrl(card))"
+                      @keydown.enter.prevent="card.scryfallId && openExternalLink(buildScryfallCardUrl(card))"
+                      @keydown.space.prevent="card.scryfallId && openExternalLink(buildScryfallCardUrl(card))"
                     >
                       <span class="card-count">{{ card.count }}x</span>
                       <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                      <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? scryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
+                      <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? buildScryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
                     </div>
                   </div>
                 </div>
@@ -929,13 +929,13 @@ createApp({
                     :key="cardRowKey(card)"
                     :class="{ 'card-row-link': card.scryfallId }"
                     :tabindex="card.scryfallId ? 0 : undefined"
-                    @click="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
-                    @keydown.enter.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
-                    @keydown.space.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
+                    @click="card.scryfallId && openExternalLink(buildScryfallCardUrl(card))"
+                    @keydown.enter.prevent="card.scryfallId && openExternalLink(buildScryfallCardUrl(card))"
+                    @keydown.space.prevent="card.scryfallId && openExternalLink(buildScryfallCardUrl(card))"
                   >
                     <span class="card-count">{{ card.count }}x</span>
                     <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                    <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? scryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
+                    <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? buildScryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
                   </div>
                 </div>
               </div>
@@ -947,13 +947,13 @@ createApp({
                 :key="cardRowKey(card)"
                 :class="{ 'card-row-link': card.scryfallId }"
                 :tabindex="card.scryfallId ? 0 : undefined"
-                @click="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
-                @keydown.enter.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
-                @keydown.space.prevent="card.scryfallId && openExternalLink(scryfallCardUrl(card))"
+                @click="card.scryfallId && openExternalLink(buildScryfallCardUrl(card))"
+                @keydown.enter.prevent="card.scryfallId && openExternalLink(buildScryfallCardUrl(card))"
+                @keydown.space.prevent="card.scryfallId && openExternalLink(buildScryfallCardUrl(card))"
               >
                 <span class="card-count">{{ card.count }}x</span>
                 <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? scryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
+                <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? buildScryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
               </div>
             </div>
           </div>

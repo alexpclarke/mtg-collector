@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gzipSync } from "node:zlib";
-import { resolveCardsByScryfallId, applyScryfallResolutionToRows, loadScryfallSets } from "../../src/services/scryfall.ts";
+import { resolveCardsByIdentifier, applyResolutionToInventoryRows, loadScryfallSets } from "../../src/services/scryfall.ts";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -53,11 +53,11 @@ function mockFetch(data: unknown) {
 // and all subsequent tests share that same resolved value.
 mockFetch(CARD_INDEX);
 
-// ── applyScryfallResolutionToRows ─────────────────────────────────────────────
+// ── applyResolutionToInventoryRows ───────────────────────────────────────────
 
 test("given row with no matching resolution when applying resolution then row is returned unchanged", () => {
   const row = { "Scryfall ID": ID_IN_INDEX, Edition: "Alpha", "Edition Code": "lea" };
-  const [result] = applyScryfallResolutionToRows([row], {});
+  const [result] = applyResolutionToInventoryRows([row], {});
   assert.equal(result.Edition, "Alpha");
   assert.equal(result["Edition Code"], "lea");
 });
@@ -65,7 +65,7 @@ test("given row with no matching resolution when applying resolution then row is
 test("given row with resolution when applying then edition code and edition name are overwritten", () => {
   const row = { "Scryfall ID": ID_IN_INDEX, Edition: "", "Edition Code": "" };
   const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
-  const [result] = applyScryfallResolutionToRows([row], resolved);
+  const [result] = applyResolutionToInventoryRows([row], resolved);
   assert.equal(result["Edition Code"], "mh3");
   assert.equal(result.Edition, "Modern Horizons 3");
 });
@@ -73,45 +73,45 @@ test("given row with resolution when applying then edition code and edition name
 test("given row with resolution and blank card number when applying then card number is filled in", () => {
   const row = { "Scryfall ID": ID_IN_INDEX, "Card Number": "", Edition: "", "Edition Code": "" };
   const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
-  const [result] = applyScryfallResolutionToRows([row], resolved);
+  const [result] = applyResolutionToInventoryRows([row], resolved);
   assert.equal(result["Card Number"], "42");
 });
 
 test("given row with resolution and existing card number when applying then scryfall value overwrites it", () => {
   const row = { "Scryfall ID": ID_IN_INDEX, "Card Number": "99", Edition: "", "Edition Code": "" };
   const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
-  const [result] = applyScryfallResolutionToRows([row], resolved);
+  const [result] = applyResolutionToInventoryRows([row], resolved);
   assert.equal(result["Card Number"], "42");
 });
 
 test("given row with resolution and blank language when applying then language is left blank", () => {
   const row = { "Scryfall ID": ID_IN_INDEX, Language: "", Edition: "", "Edition Code": "" };
   const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
-  const [result] = applyScryfallResolutionToRows([row], resolved);
+  const [result] = applyResolutionToInventoryRows([row], resolved);
   assert.equal(result.Language, "");
 });
 
 test("given row with resolution and existing language when applying then language is left unchanged", () => {
   const row = { "Scryfall ID": ID_IN_INDEX, Language: "Japanese", Edition: "", "Edition Code": "" };
   const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
-  const [result] = applyScryfallResolutionToRows([row], resolved);
+  const [result] = applyResolutionToInventoryRows([row], resolved);
   assert.equal(result.Language, "Japanese");
 });
 
-// ── resolveCardsByScryfallId ──────────────────────────────────────────────────
+// ── resolveCardsByIdentifier ──────────────────────────────────────────────────
 
 test("given empty id list when resolving then both outputs are empty", async () => {
   store.clear();
-  const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId([]);
-  assert.deepEqual(resolvedById, {});
-  assert.deepEqual(unresolvedIds, []);
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([]);
+  assert.deepEqual(resolvedByIdentifier, {});
+  assert.deepEqual(unresolvedIdentifiers, []);
 });
 
 test("given ids that are not valid uuids when resolving then both outputs are empty", async () => {
   store.clear();
-  const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId(["not-a-uuid", "123", "", null as any]);
-  assert.deepEqual(resolvedById, {});
-  assert.deepEqual(unresolvedIds, []);
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier(["not-a-uuid", "123", "", null as any]);
+  assert.deepEqual(resolvedByIdentifier, {});
+  assert.deepEqual(unresolvedIdentifiers, []);
 });
 
 test("given cached id in localStorage when resolving then cache is returned without loading the card index", async () => {
@@ -120,45 +120,45 @@ test("given cached id in localStorage when resolving then cache is returned with
   store.set(CARD_CACHE_KEY, JSON.stringify({ [ID_CACHED]: entry }));
   // Poison fetch — if the index were loaded, this would throw
   (globalThis as any).fetch = () => { throw new Error("fetch must not be called for a localStorage cache hit"); };
-  const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId([ID_CACHED]);
-  assert.deepEqual(unresolvedIds, []);
-  assert.equal(resolvedById[ID_CACHED].code, "lea");
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_CACHED]);
+  assert.deepEqual(unresolvedIdentifiers, []);
+  assert.equal(resolvedByIdentifier[ID_CACHED].code, "lea");
   // Restore for subsequent tests
   mockFetch(CARD_INDEX);
 });
 
 test("given duplicate ids when resolving then each id appears only once in the result", async () => {
   store.clear();
-  const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId([ID_IN_INDEX, ID_IN_INDEX, ID_IN_INDEX]);
-  assert.equal(Object.keys(resolvedById).length, 1);
-  assert.deepEqual(unresolvedIds, []);
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_IN_INDEX, ID_IN_INDEX, ID_IN_INDEX]);
+  assert.equal(Object.keys(resolvedByIdentifier).length, 1);
+  assert.deepEqual(unresolvedIdentifiers, []);
 });
 
 test("given id present in card index when resolving then all card fields are returned correctly", async () => {
   store.clear();
-  const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId([ID_IN_INDEX]);
-  assert.deepEqual(unresolvedIds, []);
-  assert.equal(resolvedById[ID_IN_INDEX].code, "mh3");
-  assert.equal(resolvedById[ID_IN_INDEX].name, "Modern Horizons 3");
-  assert.equal(resolvedById[ID_IN_INDEX].collectorNumber, "42");
-  assert.equal(resolvedById[ID_IN_INDEX].language, "en");
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_IN_INDEX]);
+  assert.deepEqual(unresolvedIdentifiers, []);
+  assert.equal(resolvedByIdentifier[ID_IN_INDEX].code, "mh3");
+  assert.equal(resolvedByIdentifier[ID_IN_INDEX].name, "Modern Horizons 3");
+  assert.equal(resolvedByIdentifier[ID_IN_INDEX].collectorNumber, "42");
+  assert.equal(resolvedByIdentifier[ID_IN_INDEX].language, "en");
 });
 
 test("given id absent from card index when resolving then id is placed in unresolvedIds", async () => {
   store.clear();
-  const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId([ID_NOT_FOUND]);
-  assert.deepEqual(Object.keys(resolvedById), []);
-  assert.ok(unresolvedIds.includes(ID_NOT_FOUND));
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_NOT_FOUND]);
+  assert.deepEqual(Object.keys(resolvedByIdentifier), []);
+  assert.ok(unresolvedIdentifiers.includes(ID_NOT_FOUND));
 });
 
 test("given mix of cached and uncached ids when resolving then both sources contribute to the result", async () => {
   store.clear();
   const entry = { code: "lea", name: "Limited Edition Alpha", collectorNumber: "1", language: "en", fetchedAt: Date.now() };
   store.set(CARD_CACHE_KEY, JSON.stringify({ [ID_CACHED]: entry }));
-  const { resolvedById, unresolvedIds } = await resolveCardsByScryfallId([ID_CACHED, ID_IN_INDEX]);
-  assert.deepEqual(unresolvedIds, []);
-  assert.equal(resolvedById[ID_CACHED].code, "lea");
-  assert.equal(resolvedById[ID_IN_INDEX].code, "mh3");
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_CACHED, ID_IN_INDEX]);
+  assert.deepEqual(unresolvedIdentifiers, []);
+  assert.equal(resolvedByIdentifier[ID_CACHED].code, "lea");
+  assert.equal(resolvedByIdentifier[ID_IN_INDEX].code, "mh3");
 });
 
 // ── loadScryfallSets ──────────────────────────────────────────────────────────
