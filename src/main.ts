@@ -6,7 +6,7 @@
 // @ts-nocheck
 const { createApp, ref, computed, watch, nextTick } = Vue;
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
-import { loadScryfallSets, resolveCardsByIdentifier, applyResolutionToInventoryRows, buildScryfallCardUrl } from "./services/scryfall.ts";
+import { loadScryfallSets, fetchScryfallDataTimestamp, resolveCardsByIdentifier, applyResolutionToInventoryRows, buildScryfallCardUrl } from "./services/scryfall.ts";
 import { DEFAULT_BOX_CAPACITY, DEFAULT_START_YEAR, DEFAULT_BINDER_TAG, FOREIGN_BOX_LABEL } from "./domain/constants.ts";
 import "./ui/theme.ts";
 import { buildSetMappings } from "./domain/sets.ts";
@@ -33,6 +33,16 @@ createApp({
     const selectedSetInfo = ref(null);
     const resolutionSummary = ref("");
     const dataTimestamp = ref("");
+
+    // Fetch the data timestamp eagerly on page load via a HEAD request so it
+    // is visible immediately, without waiting for the user to run packing.
+    fetchScryfallDataTimestamp().then((raw) => {
+      if (raw) {
+        const date = new Date(raw);
+        dataTimestamp.value = date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
+          + " " + date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      }
+    });
     const settingsOpen = ref(false);
     const openSettingsTooltip = ref("");
     const settingsTooltipPosition = ref({ x: 0, y: 0 });
@@ -285,7 +295,7 @@ createApp({
 
       loading.value = true;
       try {
-        const [{ sets: scryfallSets, dataTimestamp: fetchedTimestamp }, rows] = await Promise.all([
+        const [{ sets: scryfallSets }, rows] = await Promise.all([
           loadScryfallSets(),
           new Promise((resolve, reject) => {
             Papa.parse(file.value, {
@@ -298,7 +308,6 @@ createApp({
         ]);
 
         const mappings = buildSetMappings(scryfallSets);
-        if (fetchedTimestamp) dataTimestamp.value = new Date(fetchedTimestamp).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
         const firstPass = parseRows(rows, mappings, binderTag.value, separateForeignLanguage.value);
 
         let rowsToParse = rows;
@@ -796,7 +805,10 @@ createApp({
         </div>
       </section>
 
-      <div class="app-footer-note cds--helper-text-01">Powered by GitroHub<template v-if="dataTimestamp"> · Data last updated {{ dataTimestamp }}</template></div>
+      <div class="app-footer-note cds--helper-text-01">
+        <span>Powered by GitroHub</span>
+        <template v-if="dataTimestamp"><br><span>Data last updated {{ dataTimestamp }}</span></template>
+      </div>
 
       <div
         v-if="openSettingsTooltip"

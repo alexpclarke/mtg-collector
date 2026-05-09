@@ -225,6 +225,18 @@ export function applyResolutionToInventoryRows(rows, resolvedByIdentifier) {
   return rows.map((row) => applyResolutionToRow(row, resolvedByIdentifier));
 }
 
+// Fetches just the Last-Modified timestamp of the Scryfall sets file via a
+// HEAD request, without downloading the full payload. Used to display the data
+// freshness date on page load without waiting for a full run.
+export async function fetchScryfallDataTimestamp() {
+  try {
+    const response = await fetch("./data/sets.json.gz", { method: "HEAD" });
+    return response.headers?.get("Last-Modified") ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Fetches the pre-built Scryfall sets list (sets.json.gz) from the deployed
 // static assets. Used during run() to build set mappings before CSV parsing.
 // Also returns the Last-Modified response header as dataTimestamp so the UI
