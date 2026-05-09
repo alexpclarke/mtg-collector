@@ -11,7 +11,7 @@ import { DEFAULT_BOX_CAPACITY, DEFAULT_START_YEAR, DEFAULT_BINDER_TAG, FOREIGN_B
 import "./ui/theme.ts";
 import { buildSetMappings } from "./domain/sets.ts";
 import { languageAbbreviation, formatSetCode, parseRows, packSetsIntoBoxes, isForeignBoxLabel, formatForeignCodes, foreignCardsBySet } from "./domain/parsing.ts";
-import { colorForCode } from "./ui/colors.ts";
+import { colorForIndex } from "./ui/colors.ts";
 import { getTooltipPosition, cardsForBox, boxModalColumns, cardRowKey } from "./ui/layout.ts";
 import { openExternalLink, trapModalFocus } from "./ui/dom.ts";
 
@@ -32,6 +32,7 @@ createApp({
     const selectedBoxIndex = ref(null);
     const selectedSetInfo = ref(null);
     const resolutionSummary = ref("");
+    const dataTimestamp = ref("");
     const settingsOpen = ref(false);
     const openSettingsTooltip = ref("");
     const settingsTooltipPosition = ref({ x: 0, y: 0 });
@@ -284,7 +285,7 @@ createApp({
 
       loading.value = true;
       try {
-        const [scryfallSets, rows] = await Promise.all([
+        const [{ sets: scryfallSets, dataTimestamp: fetchedTimestamp }, rows] = await Promise.all([
           loadScryfallSets(),
           new Promise((resolve, reject) => {
             Papa.parse(file.value, {
@@ -297,6 +298,7 @@ createApp({
         ]);
 
         const mappings = buildSetMappings(scryfallSets);
+        if (fetchedTimestamp) dataTimestamp.value = new Date(fetchedTimestamp).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
         const firstPass = parseRows(rows, mappings, binderTag.value, separateForeignLanguage.value);
 
         let rowsToParse = rows;
@@ -320,6 +322,12 @@ createApp({
           firstBoxStartYear: startAt1993.value ? DEFAULT_START_YEAR : null,
           separateForeignLanguage: separateForeignLanguage.value,
         });
+
+        let colorOffset = 0;
+        for (const box of packed) {
+          box.colorOffset = colorOffset;
+          colorOffset += box.sets.length;
+        }
 
         boxes.value = packed;
         selectedBoxIndex.value = null;
@@ -408,12 +416,13 @@ createApp({
       hoverPosition,
       trapModalFocus,
       run,
-      colorForCode,
+      colorForIndex,
       formatSetCode,
       isForeignBoxLabel,
       formatForeignCodes,
       languageAbbreviation,
       buildScryfallCardUrl,
+      dataTimestamp,
       FOREIGN_BOX_LABEL,
     };
   },
@@ -753,7 +762,7 @@ createApp({
             :key="idx + s.code"
             :class="['segment', { 'segment-active': isHoveredSegment(i, idx) }]"
             tabindex="0"
-            :style="{ width: Math.max(0.2, (s.count / Math.max(boxCapacity, box.totalCount)) * 100) + '%', background: colorForCode((s.language || '') + s.code) }"
+            :style="{ width: Math.max(0.2, (s.count / Math.max(boxCapacity, box.totalCount)) * 100) + '%', background: colorForIndex(box.colorOffset + idx) }"
             @mouseenter="onSegmentEnter(i, idx, s, $event)"
             @mousemove="onSegmentMove($event)"
             @mouseleave="onSegmentLeave(i, idx)"
@@ -771,7 +780,7 @@ createApp({
               type="button"
               class="code-link cds--link"
               :class="{ 'active-code-link': isHoveredSegment(i, idx) }"
-              :style="{ '--set-code-color': colorForCode((s.language || '') + s.code) }"
+              :style="{ '--set-code-color': colorForIndex(box.colorOffset + idx) }"
               @mouseenter="onSegmentEnter(i, idx, s, $event)"
               @mousemove="onSegmentMove($event)"
               @mouseleave="onSegmentLeave(i, idx)"
@@ -787,7 +796,7 @@ createApp({
         </div>
       </section>
 
-      <div class="app-footer-note cds--helper-text-01">Powered by GitroHub</div>
+      <div class="app-footer-note cds--helper-text-01">Powered by GitroHub<template v-if="dataTimestamp"> · Data last updated {{ dataTimestamp }}</template></div>
 
       <div
         v-if="openSettingsTooltip"
@@ -802,7 +811,7 @@ createApp({
       <div
         v-if="hoveredSegment"
         class="segment-tooltip segment-tooltip-floating cds--tile cds--layer-three"
-        :style="{ left: hoverPosition.x + 'px', top: hoverPosition.y + 'px', borderLeftColor: colorForCode((hoveredSegment.setInfo.language || '') + hoveredSegment.setInfo.code) }"
+        :style="{ left: hoverPosition.x + 'px', top: hoverPosition.y + 'px', borderLeftColor: colorForIndex(boxes[hoveredSegment.boxIndex].colorOffset + hoveredSegment.segmentIndex) }"
       >
         <p class="cds--productive-heading-01">{{ hoveredSegment.setInfo.name || formatSetCode(hoveredSegment.setInfo.code) }}</p>
         <div
@@ -821,8 +830,6 @@ createApp({
           <div>{{ formatSetCode(hoveredSegment.setInfo.code) }}</div>
           <div class="segment-tooltip-label">Count</div>
           <div>{{ hoveredSegment.setInfo.count }}</div>
-          <div class="segment-tooltip-label">Year</div>
-          <div>{{ hoveredSegment.setInfo.year || 'Unknown' }}</div>
           <div class="segment-tooltip-label">Release Date</div>
           <div>{{ hoveredSegment.setInfo.releasedAt || 'Unknown' }}</div>
           <div class="segment-tooltip-label">Set Type</div>

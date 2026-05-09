@@ -227,8 +227,18 @@ export function applyResolutionToInventoryRows(rows, resolvedByIdentifier) {
 
 // Fetches the pre-built Scryfall sets list (sets.json.gz) from the deployed
 // static assets. Used during run() to build set mappings before CSV parsing.
+// Also returns the Last-Modified response header as dataTimestamp so the UI
+// can display when the Scryfall data was last refreshed.
 export async function loadScryfallSets() {
-  return fetchCompressedJson("./data/sets.json.gz");
+  const url = "./data/sets.json.gz";
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
+  const decompressionStream = new DecompressionStream("gzip");
+  const stream = response.body.pipeThrough(decompressionStream);
+  const text = await new Response(stream).text();
+  const sets = JSON.parse(text);
+  const dataTimestamp = response.headers.get("Last-Modified");
+  return { sets, dataTimestamp };
 }
 
 // Builds a direct URL to a card's page on Scryfall.com.
