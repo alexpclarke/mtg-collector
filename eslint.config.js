@@ -1,5 +1,6 @@
 import js from "@eslint/js";
 import globals from "globals";
+import tsParser from "@typescript-eslint/parser";
 
 export default [
   {
@@ -7,7 +8,19 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ["src/**/*.js", "src/**/*.ts"],
+    files: ["src/**/*.ts"],
+    languageOptions: {
+      parser: tsParser,
+      sourceType: "module",
+      globals: {
+        ...globals.browser,
+        Vue: "readonly",
+        Papa: "readonly",
+      },
+    },
+  },
+  {
+    files: ["src/**/*.js"],
     languageOptions: {
       sourceType: "module",
       globals: {
@@ -18,8 +31,18 @@ export default [
     },
   },
   {
-    files: ["scripts/**/*.js", "tests/**/*.mjs", "tests/**/*.ts"],
+    files: ["scripts/**/*.js", "tests/**/*.mjs"],
     languageOptions: {
+      sourceType: "module",
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
+    files: ["tests/**/*.ts"],
+    languageOptions: {
+      parser: tsParser,
       sourceType: "module",
       globals: {
         ...globals.node,

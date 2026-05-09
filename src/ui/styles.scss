@@ -62,6 +62,7 @@ body {
   --cds-button-primary-hover: var(--app-accent-hover);
   --cds-button-primary-active: var(--app-accent-active);
 }
+
 .app-shell {
   /* Intentional: keeps reading width comfortable on large desktops. */
   box-sizing: border-box;
@@ -495,6 +496,7 @@ body {
 .card-row-link:focus .card-language-tag {
   color: var(--cds-link-primary-hover);
 }
+
 .foil-indicator {
   color: var(--cds-text-primary);
   font-weight: bold;
@@ -507,6 +509,7 @@ body {
   font-weight: normal;
   margin-left: spacing.$spacing-01;
 }
+
 .set-group {
   margin-bottom: 0;
 }

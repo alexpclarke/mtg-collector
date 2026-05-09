@@ -25,7 +25,7 @@ export const PROMO_FAMILY_KEYWORDS = [
 export const FOREIGN_BOX_LABEL = "Foreign";
 export const FOREIGN_LANGUAGE_ENGLISH = "English";
 
-export const LANGUAGES: Record<string, { abbreviation: string; scryfallCode: string }> = {
+export const LANGUAGES = {
   English:              { abbreviation: "EN", scryfallCode: "en" },
   Spanish:              { abbreviation: "SP", scryfallCode: "es" },
   French:               { abbreviation: "FR", scryfallCode: "fr" },

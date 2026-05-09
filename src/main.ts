@@ -3,7 +3,7 @@ const { createApp, ref, computed, watch, nextTick } = Vue;
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
 import { loadScryfallSets, resolveCardsByScryfallId, applyScryfallResolutionToRows, scryfallCardUrl } from "./services/scryfall.ts";
 import { DEFAULT_BOX_CAPACITY, DEFAULT_START_YEAR, DEFAULT_BINDER_TAG, FOREIGN_BOX_LABEL } from "./domain/constants.ts";
-import { applyCarbonTheme } from "./ui/theme.ts";
+import "./ui/theme.ts";
 import { buildSetMappings } from "./domain/sets.ts";
 import { languageAbbreviation, formatSetCode, parseRows, packSetsIntoBoxes, isForeignBoxLabel, formatForeignCodes, foreignCardsBySet } from "./domain/parsing.ts";
 import { colorForCode } from "./ui/colors.ts";

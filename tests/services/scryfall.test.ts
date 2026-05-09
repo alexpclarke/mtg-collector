@@ -21,7 +21,7 @@ const CARD_INDEX = {
 // Node has no localStorage; provide a simple in-memory stand-in before any
 // code in scryfall.ts can run.
 
-const store = new Map<string, string>();
+const store = new Map();
 
 (globalThis as any).localStorage = {
   getItem:    (k: string) => (store.has(k) ? store.get(k)! : null),

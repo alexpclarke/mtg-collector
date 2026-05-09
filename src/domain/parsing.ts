@@ -349,8 +349,8 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
   if (boxes.length && boxes[0].sets.length) {
     const firstBoxYears = boxes[0].sets.map((x) => x.year).filter(Boolean);
     const startYear =
-      Number.isFinite(options.firstBoxStartYear) && options.firstBoxStartYear > 0
-        ? options.firstBoxStartYear
+      Number.isFinite(firstBoxStartYear) && firstBoxStartYear > 0
+        ? firstBoxStartYear
         : Math.min(...firstBoxYears);
     const endYear = Math.max(...firstBoxYears);
     boxes[0].label = startYear === endYear ? String(startYear) : `${startYear}-${endYear}`;
