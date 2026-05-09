@@ -1,3 +1,8 @@
+// Low-level set splitting utility.
+// When a single set has more cards than a box can hold, this function breaks
+// it into sequential chunks that each fit within boxCapacity. The card list
+// is preserved across chunks so the box modal can still display individual cards.
+// Called by packSetsIntoBoxes (via parsing.ts) before any grouping occurs.
 export function splitSetIntoCapacityChunks(setInfo, boxCapacity) {
   const total = Number(setInfo?.count || 0);
   if (!Number.isFinite(total) || total <= 0) return [];

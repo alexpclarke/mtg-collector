@@ -2,6 +2,9 @@
 // Computes positions and data structures used to render tooltips and modals.
 // No DOM mutations, no Vue refs, no domain logic.
 
+// Computes pixel coordinates for a floating tooltip so it stays within the
+// viewport. Accepts optional width/height/offset hints to fine-tune placement.
+// Works from either a mouse event position or a bounding rect centre.
 export function getTooltipPosition(clientX, clientY, options = {}) {
   const offset = options.offset ?? 16;
   const margin = 8;
@@ -17,6 +20,9 @@ export function getTooltipPosition(clientX, clientY, options = {}) {
   return { x, y };
 }
 
+// Returns the list of set groups (with their sorted card lists) for a given
+// box, ordered by release year. Filters out empty sets. Used as the data
+// source for the box detail modal's card display.
 export function cardsForBox(box) {
   const setsByIndex = [];
   for (const setInfo of box.sets || []) {
@@ -31,6 +37,10 @@ export function cardsForBox(box) {
   return setsByIndex;
 }
 
+// Splits the set groups for a box into two roughly equal-height columns
+// for the two-column layout in the box detail modal. Uses an O(n)
+// prefix-sum minimization to find the split point that minimises the
+// visual height difference between columns.
 export function boxModalColumns(box) {
   const groups = cardsForBox(box);
   if (!groups.length) return [];
@@ -68,6 +78,9 @@ export function boxModalColumns(box) {
   return [firstColumn, secondColumn].filter(col => col.length);
 }
 
+// Produces a stable string key for a card row in a v-for loop.
+// Combines name, collector number, set code, and foil status so that
+// Vue can efficiently diff re-renders when the card list changes.
 export function cardRowKey(card) {
   const name = String(card?.name || "");
   const collector = String(card?.collectorNumber || "");

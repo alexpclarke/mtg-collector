@@ -1,6 +1,9 @@
 // Set metadata resolution: normalizes Scryfall set data into lookup maps
 // used during CSV parsing to resolve edition codes and names.
 
+// Normalises a set name to a lowercase, whitespace-collapsed string.
+// Used as a consistent key for name-based lookups so that minor
+// punctuation/spacing differences don’t cause misses.
 export function normalizeSetName(name) {
   return String(name || "")
     .trim()
@@ -8,6 +11,11 @@ export function normalizeSetName(name) {
     .replace(/\s+/g, " ");
 }
 
+// Resolves an edition code from a CSV row to its canonical Scryfall parent
+// set code. Handles three edge cases that appear in real CLZ/Moxfield exports:
+//   - Underscore-separated codes ("m21_promos" → try "m21" and "promos")
+//   - Arena edition suffixes ("123e" → try "123d")
+//   - Fallback to the raw lowercased code if no alias is found.
 export function resolveParentSetCode(editionCode, parentCodeByAlias) {
   const normalized = String(editionCode || "").trim().toLowerCase();
   const candidates = [normalized];
@@ -24,6 +32,11 @@ export function resolveParentSetCode(editionCode, parentCodeByAlias) {
   return normalized;
 }
 
+// Resolves a raw edition code + edition name pair from a CSV row to a
+// canonical { code, name } using the Scryfall lookup maps.
+// Falls back to name-based lookup when the code alone doesn’t match,
+// which handles cases where the CSV has a human-readable edition name
+// but an unrecognised or stale code.
 export function normalizeInventorySet(editionCode, editionName, parentCodeByAlias, setNameByCode, codeByNormalizedName) {
   let code = resolveParentSetCode(editionCode, parentCodeByAlias);
   const normalizedEditionName = normalizeSetName(editionName);
@@ -34,6 +47,16 @@ export function normalizeInventorySet(editionCode, editionName, parentCodeByAlia
   return { code, name };
 }
 
+// Processes the raw Scryfall sets array into a collection of lookup maps
+// used throughout CSV parsing:
+//   parentCodeByAlias  — maps any code/alias → the canonical parent set code
+//   setNameByCode      — maps canonical code → human-readable set name
+//   codeByNormalizedName — maps normalised set name → canonical code (name fallback)
+//   yearByCode         — maps code → release year (integer)
+//   dateByCode         — maps code → full ISO release date ("YYYY-MM-DD")
+//   metaByCode         — maps code → { setType, hasParentSet }
+//   metaByName         — maps normalised name → { year, releasedAt, setType, hasParentSet }
+// Called once per run() invocation with the freshly loaded sets.json.gz data.
 export function buildSetMappings(scryfallSets) {
   const parentCodeByAlias = {};
   const setNameByCode = {};

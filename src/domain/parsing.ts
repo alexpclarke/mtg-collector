@@ -15,6 +15,9 @@ import {
   PROMO_FAMILY_KEYWORDS,
 } from "./constants.ts";
 
+// Returns true if the row's Tags column contains the exact binder tag
+// (case-insensitive, comma-delimited). Binder rows are counted separately
+// and excluded from box packing.
 export function rowHasBinderTag(row, binderTag) {
   const tags = (row.Tags || "").trim();
   const normalizedBinderTag = String(binderTag || "").trim().toLowerCase();
@@ -26,19 +29,30 @@ export function rowHasBinderTag(row, binderTag) {
     .includes(normalizedBinderTag);
 }
 
+// Returns the 2-3 character display abbreviation for a language (e.g. "JP").
+// Falls back to the first two characters of the language name if the language
+// isn’t in the LANGUAGES constant (handles future/unknown languages gracefully).
 export function languageAbbreviation(language) {
   return LANGUAGES[language]?.abbreviation || (language || "UN").slice(0, 2).toUpperCase();
 }
 
+// Uppercases a set code for consistent display (e.g. "lea" → "LEA").
+// Centralised here so all display-facing code uses the same format.
 export function formatSetCode(code) {
   return String(code || "").toUpperCase();
 }
 
+// Extracts the first 4-digit year (1900s or 2000s) from an arbitrary string.
+// Used as a last-resort release year fallback when Scryfall metadata is absent,
+// by scanning the "Printing Note" column or the set/edition name.
 export function extractYear(text) {
   const m = /\b(19|20)\d{2}\b/.exec(String(text || ""));
   return m ? Number(m[0]) : null;
 }
 
+// Determines whether a set should be routed to the "misc." box rather than
+// a year-labelled box. Catches Secret Lair, memorabilia, standalone promos,
+// and sets whose names contain well-known special-product keywords.
 export function isSpecialSet(setInfo) {
   const codeLower = String(setInfo.code || "").toLowerCase();
   if (SPECIAL_BOX_CODES.includes(codeLower)) return true;
@@ -52,6 +66,10 @@ export function isSpecialSet(setInfo) {
   return false;
 }
 
+// Produces a lexicographically sortable string key for a set so that sets
+// are ordered by their exact release date when available, falling back to
+// year-end ("YYYY-12-31") and then a far-future sentinel for unknowns.
+// The set code is appended as a tiebreaker for same-day releases.
 export function releaseSortKey(setInfo) {
   const releasedAt = String(setInfo.releasedAt || "");
   if (releasedAt.length === 10) return `${releasedAt}|${setInfo.code}`;
@@ -59,6 +77,10 @@ export function releaseSortKey(setInfo) {
   return `9999-12-31|${setInfo.code}`;
 }
 
+// Accumulates a card into a set entry’s temporary cardMap, merging duplicate
+// rows (same name + foil + set code + language) by summing their counts.
+// The cardMap is a staging structure — finalizeCardList() converts it to a
+// sorted array once all rows for a set have been processed.
 export function addCardToEntry(
   entry,
   cardName,
@@ -93,12 +115,23 @@ export function addCardToEntry(
   entry.cardMap.set(key, existing);
 }
 
+// Converts a set entry’s temporary cardMap into a sorted cards array and
+// deletes the map. Called once per set after all its rows have been accumulated.
 export function finalizeCardList(entry) {
   const map = entry.cardMap || new Map();
   entry.cards = sortCardsForDisplay([...map.values()]);
   delete entry.cardMap;
 }
 
+// Core CSV parsing function. Iterates every row and:
+//   - Skips binder-tagged rows (counted in binderTotal)
+//   - Skips rows with no tradelist count
+//   - Routes missing-edition-code rows to the review list
+//   - Resolves edition codes to canonical set codes via Scryfall mappings
+//   - Groups foreign-language cards into per-language foreign entries
+//   - Routes unresolvable sets (no year) to the review list
+//   - Accumulates all remaining rows into grouped set entries
+// Returns { packable, binderTotal, missingEditionList, missingEditionTotal }.
 export function parseRows(rows, mappings, binderTag, separateForeignLanguage = true) {
   const grouped = new Map();
   const yearsPerCode = new Map();
@@ -275,6 +308,14 @@ export function parseRows(rows, mappings, binderTag, separateForeignLanguage = t
   };
 }
 
+// Arranges parsed sets into labelled boxes respecting boxCapacity.
+// Processing order:
+//   1. Split any set that exceeds capacity into sub-chunks (via packing.ts)
+//   2. Route foreign-language sets to Foreign boxes at the end
+//   3. Route special sets (SLD, misc keywords) to misc. boxes after year boxes
+//   4. Group remaining sets by year and fill boxes chronologically
+//   5. Sort each box’s contents by release date for display
+// Returns an array of box objects: { label, totalCount, sets[] }.
 export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
   const { firstBoxStartYear = null, separateForeignLanguage = true } = options;
   function closeBox(contents, total, labelOverride = null) {
@@ -371,10 +412,15 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
   return boxes;
 }
 
+// Returns true when a box label begins with the Foreign prefix.
+// Used in the template to apply different styling/rendering to Foreign boxes.
 export function isForeignBoxLabel(label) {
   return String(label || "").startsWith(FOREIGN_BOX_LABEL);
 }
 
+// Formats a foreign set’s set codes as a compact display string grouped by
+// language, e.g. "FR: LEB, LEA  |  JP: PJJT". Used in the Foreign box
+// segment tooltip and set detail modal.
 export function formatForeignCodes(sets) {
   return Object.entries(
     sets.reduce((acc, s) => {
@@ -393,6 +439,10 @@ export function formatForeignCodes(sets) {
     .join("  |  ");
 }
 
+// Groups the individual cards within a Foreign set entry by their source
+// set code, sorts each group by collector number, and sorts the groups by
+// release date. Used by the Foreign set modal to display cards organised
+// by the original set they came from rather than a flat list.
 export function foreignCardsBySet(setInfo) {
   const groups = new Map();
   for (const card of setInfo?.cards || []) {

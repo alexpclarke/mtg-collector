@@ -1,3 +1,8 @@
+// Vue application entry point and orchestration layer.
+// Owns all reactive state, user event handlers, and the run() pipeline.
+// Pure logic lives in domain/ and services/; pure UI utilities live in ui/.
+// This file intentionally contains no business logic — it only wires together
+// the imported modules and exposes the resulting state/methods to the template.
 // @ts-nocheck
 const { createApp, ref, computed, watch, nextTick } = Vue;
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
@@ -38,42 +43,57 @@ createApp({
     const boxModalEl = ref(null);
     const setModalEl = ref(null);
 
+    // ── Computed ──────────────────────────────────────────────────────────────
+
+    // Total number of packed boxes — displayed in the results summary.
     const boxCount = computed(() => boxes.value.length);
+    // True when all preconditions for running are met: a file is selected and
+    // the box capacity is a positive finite number.
     const canRun = computed(() => {
       const capacity = Number(boxCapacity.value);
       return Boolean(file.value) && Number.isFinite(capacity) && capacity > 0;
     });
 
+    // ── Settings helpers ──────────────────────────────────────────────────────
+
+    // Clamps and truncates a raw capacity input to a positive integer.
     function normalizeCapacityValue(value) {
       const parsed = Number(value);
       if (!Number.isFinite(parsed)) return 1;
       return Math.max(1, Math.trunc(parsed));
     }
 
+    // Increments or decrements the box capacity by delta (used by +/- buttons).
     function adjustBoxCapacity(delta) {
       boxCapacity.value = normalizeCapacityValue((Number(boxCapacity.value) || 0) + delta);
     }
 
+    // Normalises the capacity input on blur (clamp + truncate).
     function normalizeBoxCapacity() {
       boxCapacity.value = normalizeCapacityValue(boxCapacity.value);
     }
 
+    // Trims the binder tag on blur and resets to the default if left blank.
     function normalizeBinderTag() {
       const normalized = String(binderTag.value || "").trim();
       binderTag.value = normalized || DEFAULT_BINDER_TAG;
     }
 
+    // Records which settings tooltip is open and positions it near the trigger.
     function showSettingsTooltip(key, event) {
       openSettingsTooltip.value = key;
       updateSettingsTooltipPosition(event);
     }
 
+    // Clears the open tooltip if it matches key (prevents closing unrelated ones).
     function hideSettingsTooltip(key) {
       if (openSettingsTooltip.value === key) {
         openSettingsTooltip.value = "";
       }
     }
 
+    // Returns the help text for a given settings field key.
+    // Kept in JS rather than the template to keep the template readable.
     function settingsTooltipText(key) {
       if (key === "start-at-1993") {
         return "Checked: first box starts at 1993. Unchecked: starts at your oldest year.";
@@ -93,6 +113,9 @@ createApp({
       return "";
     }
 
+    // Allows clicking anywhere in a settings card row to toggle its checkbox,
+    // while still letting clicks on interactive children (inputs, labels,
+    // buttons) behave normally.
     function toggleSettingCheckbox(event, checkboxId) {
       const target = event.target;
       if (
@@ -108,6 +131,9 @@ createApp({
       }
     }
 
+    // Focuses the text/number input inside a settings card when the card area
+    // is clicked. Skips the focus if the click was on a more specific interactive
+    // element, preventing double-focus on checkboxes and buttons.
     function focusSettingInput(event) {
       const target = event.target;
       if (
@@ -126,6 +152,8 @@ createApp({
         input.focus();
       }
     }
+
+    // ── File input handlers ───────────────────────────────────────────────────
 
     function onFileChange(event) {
       file.value = event.target.files?.[0] || null;
@@ -147,6 +175,9 @@ createApp({
       file.value = event.dataTransfer?.files?.[0] || null;
     }
 
+    // ── Segment hover handlers ────────────────────────────────────────────────
+
+    // Positions the settings tooltip using a mouse or bounding-rect position.
     function updateSettingsTooltipPosition(event) {
       if (event?.clientX != null && event?.clientY != null) {
         settingsTooltipPosition.value = getTooltipPosition(event.clientX, event.clientY, {
@@ -167,6 +198,7 @@ createApp({
       }
     }
 
+    // Records the hovered segment and updates the floating set-info tooltip position.
     function onSegmentEnter(boxIndex, segmentIndex, setInfo, event) {
       hoveredSegment.value = { boxIndex, segmentIndex, setInfo };
       if (event?.clientX != null && event?.clientY != null) {
@@ -216,6 +248,17 @@ createApp({
       setModalEl.value?.focus();
     });
 
+    // ── Run pipeline ──────────────────────────────────────────────────────────
+
+    // Main run function. Orchestrates the full pipeline:
+    //   1. Reset output refs
+    //   2. Concurrently load Scryfall sets + parse the CSV file
+    //   3. Build set mappings from the Scryfall sets data
+    //   4. Do a first-pass parse to identify which Scryfall IDs need resolution
+    //   5. Resolve Scryfall IDs to edition codes/collector numbers (if enabled)
+    //   6. Re-parse with resolved data applied
+    //   7. Pack the resolved sets into boxes
+    //   8. Write results to reactive refs for the template to render
     async function run() {
       error.value = "";
       resolutionSummary.value = "";
