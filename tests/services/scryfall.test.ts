@@ -258,7 +258,7 @@ test("given valid sets data when loading sets then the sets array is returned", 
   mockFetch(sets);
 
   // Exercise
-  const result = await loadScryfallSets();
+  const { sets: result } = await loadScryfallSets();
 
   // Verify
   assert.deepEqual(result, sets);
@@ -269,7 +269,7 @@ test("given a failed fetch response when loading sets then an error is thrown", 
   (globalThis as any).fetch = async () => ({ ok: false, status: 503, body: new ReadableStream() });
 
   // Exercise + Verify
-  await assert.rejects(loadScryfallSets, /Failed to fetch/);
+  await assert.rejects(() => loadScryfallSets().then(r => r.sets), /Failed to fetch/);
 });
 
 // ── buildScryfallCardUrl ──────────────────────────────────────────────────────

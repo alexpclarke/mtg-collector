@@ -237,7 +237,7 @@ export async function loadScryfallSets() {
   const stream = response.body.pipeThrough(decompressionStream);
   const text = await new Response(stream).text();
   const sets = JSON.parse(text);
-  const dataTimestamp = response.headers.get("Last-Modified");
+  const dataTimestamp = response.headers?.get("Last-Modified") ?? null;
   return { sets, dataTimestamp };
 }
 
