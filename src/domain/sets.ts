@@ -11,6 +11,12 @@ export function normalizeSetName(name) {
     .replace(/\s+/g, " ");
 }
 
+// Static overrides for edition codes that don't exist in Scryfall's set list.
+// Maps the raw CSV code (lowercase) to the canonical Scryfall code.
+const MANUAL_CODE_ALIASES = {
+  leita: "leg", // Legends Italian → Legends
+};
+
 // Resolves an edition code from a CSV row to its canonical Scryfall parent
 // set code. Handles three edge cases that appear in real CLZ/Moxfield exports:
 //   - Underscore-separated codes ("m21_promos" → try "m21" and "promos")
@@ -18,6 +24,7 @@ export function normalizeSetName(name) {
 //   - Fallback to the raw lowercased code if no alias is found.
 export function resolveParentSetCode(editionCode, parentCodeByAlias) {
   const normalized = String(editionCode || "").trim().toLowerCase();
+  if (MANUAL_CODE_ALIASES[normalized]) return MANUAL_CODE_ALIASES[normalized];
   const candidates = [normalized];
   if (normalized.includes("_")) {
     const [prefix, suffix] = normalized.split("_", 2);
