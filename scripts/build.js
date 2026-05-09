@@ -63,7 +63,9 @@ async function buildIndexHtml() {
   const source = await fs.readFile("index.html", "utf8");
   const rewritten = source
     .replace('./src/ui/styles.css', './assets/styles.min.css')
-    .replace('./src/main.ts', './assets/app.min.js');
+    .replace('./src/main.ts', './assets/app.min.js')
+    .replace('./src/gitrohub-light.svg', './assets/gitrohub-light.svg')
+    .replace('./src/gitrohub-dark.svg', './assets/gitrohub-dark.svg');
 
   const minified = await minify(rewritten, {
     collapseWhitespace: true,
@@ -81,6 +83,8 @@ async function main() {
   await fs.mkdir(DIST_ASSETS, { recursive: true });
 
   await buildIndexHtml();
+  await copyFile("src/gitrohub-light.svg", path.join(DIST_ASSETS, "gitrohub-light.svg"));
+  await copyFile("src/gitrohub-dark.svg", path.join(DIST_ASSETS, "gitrohub-dark.svg"));
   await buildScryfallData();
 
   try {
