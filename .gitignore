@@ -3,6 +3,7 @@ node_modules/
 dist/
 .cache/
 .gh-pages/
+data/scryfall/*.json.gz
 
 # OS noise
 .DS_Store

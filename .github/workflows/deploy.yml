@@ -7,6 +7,9 @@ on:
       - main
     types:
       - completed
+  schedule:
+    - cron: '0 7 * * *'  # 7 AM UTC — after Scryfall publishes nightly updates
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -22,16 +25,56 @@ concurrency:
 
 jobs:
   build:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # For workflow_run: only deploy if CI passed. For schedule/dispatch: always run.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Fetch Scryfall sets and compute hash
+        id: sets
+        run: |
+          UA="box-packer/1.0 (github.com/${{ github.repository }})"
+          mkdir -p data/scryfall
+
+          SETS_DATA=$(curl -sf -A "$UA" https://api.scryfall.com/sets \
+            | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['data'], indent=2))")
+
+          DATE=$(date -u +%F)
+          echo "$SETS_DATA" | gzip > "data/scryfall/sets-${DATE}.json.gz"
+
+          HASH=$(echo "$SETS_DATA" | sha256sum | cut -d' ' -f1)
+          echo "hash=${HASH}" >> "$GITHUB_OUTPUT"
+          echo "date=${DATE}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore default-cards from cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: data/scryfall/default-cards-*.json.gz
+          key: scryfall-default-cards-${{ steps.sets.outputs.hash }}
+
+      - name: Download default-cards (cache miss — sets have changed)
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          UA="box-packer/1.0 (github.com/${{ github.repository }})"
+          DATE="${{ steps.sets.outputs.date }}"
+
+          DOWNLOAD_URI=$(curl -sf -A "$UA" https://api.scryfall.com/bulk-data \
+            | python3 -c "
+          import json, sys
+          for item in json.load(sys.stdin)['data']:
+              if item['type'] == 'default_cards':
+                  print(item['download_uri']); break
+          ")
+
+          curl -sf -L -A "$UA" "$DOWNLOAD_URI" | gzip > "data/scryfall/default-cards-${DATE}.json.gz"
+
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
@@ -55,8 +98,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Configure GitHub Pages
-        uses: actions/configure-pages@v6
+        uses: actions/configure-pages@v5
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@v4
