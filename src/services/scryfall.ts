@@ -1,4 +1,6 @@
 // @ts-nocheck
+import { LANGUAGES } from "../domain/constants.ts";
+
 const CARD_CACHE_KEY = "box-packer-scryfall-cards-by-id-v1";
 const CARD_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const CARD_NEGATIVE_CACHE_TTL_MS = 3 * 24 * 60 * 60 * 1000;
@@ -124,4 +126,14 @@ export function applyScryfallResolutionToRows(rows, resolvedById) {
 
 export async function loadScryfallSets() {
   return fetchGzJson("./data/sets.json.gz");
+}
+
+export function scryfallCardUrl(card) {
+  const setCode = String(card.setCode || "").toLowerCase();
+  const collectorNumber = String(card.collectorNumber || "");
+  const lang = LANGUAGES[card.language]?.scryfallCode || "en";
+  if (setCode && collectorNumber) {
+    return `https://scryfall.com/card/${setCode}/${collectorNumber}/${lang}/`;
+  }
+  return `https://scryfall.com/card/${card.scryfallId}`;
 }
