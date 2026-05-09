@@ -1,19 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { gzipSync } from "node:zlib";
-import { resolveCardsByIdentifier, applyResolutionToInventoryRows, loadScryfallSets } from "../../src/services/scryfall.ts";
+import { resolveCardsByIdentifier, applyResolutionToInventoryRows, loadScryfallSets, buildScryfallCardUrl } from "../../src/services/scryfall.ts";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
-const CARD_CACHE_KEY = "box-packer-scryfall-cards-by-id-v1";
-
-// Valid Scryfall-style UUIDs (v4 format)
-const ID_IN_INDEX  = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d";
-const ID_NOT_FOUND = "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e";
-const ID_CACHED    = "c3d4e5f6-a7b8-4c9d-ae0f-2a3b4c5d6e7f";
+// Valid Scryfall-style UUIDs used as test identifiers.
+const ID_ALPHA = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d";
+const ID_BETA = "c3d4e5f6-a7b8-4c9d-ae0f-2a3b4c5d6e7f";
+const ID_MISSING = "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e";
 
 const CARD_INDEX = {
-  [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" },
+  [ID_ALPHA]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" },
+  [ID_BETA]: { code: "lea", name: "Limited Edition Alpha", collectorNumber: "1", language: "en" },
 };
 
 // ── localStorage mock ─────────────────────────────────────────────────────────
@@ -46,131 +45,286 @@ function mockFetch(data: unknown) {
   });
 }
 
-// Prime the card index fetch before any tests run.
-// scryfall.ts caches the card index in a module-level promise (_cardIndexPromise)
-// that is set on first call and never cleared. By installing the mock here,
-// the first test that triggers an index load will always receive CARD_INDEX,
-// and all subsequent tests share that same resolved value.
+// Prime the card index fetch before any tests run. The card index is fetched
+// lazily and memoized for the duration of the process, so this mock must be
+// installed before the first test triggers a card lookup.
 mockFetch(CARD_INDEX);
 
-// ── applyResolutionToInventoryRows ───────────────────────────────────────────
+// ── applyResolutionToInventoryRows ────────────────────────────────────────────
 
-test("given row with no matching resolution when applying resolution then row is returned unchanged", () => {
-  const row = { "Scryfall ID": ID_IN_INDEX, Edition: "Alpha", "Edition Code": "lea" };
+test("given a row with no matching resolution when applying then the row is returned unchanged", () => {
+  // Setup
+  const row = { "Scryfall ID": ID_ALPHA, Edition: "Alpha", "Edition Code": "lea" };
+
+  // Exercise
   const [result] = applyResolutionToInventoryRows([row], {});
+
+  // Verify
   assert.equal(result.Edition, "Alpha");
   assert.equal(result["Edition Code"], "lea");
 });
 
-test("given row with resolution when applying then edition code and edition name are overwritten", () => {
-  const row = { "Scryfall ID": ID_IN_INDEX, Edition: "", "Edition Code": "" };
-  const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
-  const [result] = applyResolutionToInventoryRows([row], resolved);
+test("given a row with resolution when applying then edition code and edition name are overwritten", () => {
+  // Setup
+  const row = { "Scryfall ID": ID_ALPHA, Edition: "", "Edition Code": "" };
+  const resolution = { [ID_ALPHA]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
+
+  // Exercise
+  const [result] = applyResolutionToInventoryRows([row], resolution);
+
+  // Verify
   assert.equal(result["Edition Code"], "mh3");
   assert.equal(result.Edition, "Modern Horizons 3");
 });
 
-test("given row with resolution and blank card number when applying then card number is filled in", () => {
-  const row = { "Scryfall ID": ID_IN_INDEX, "Card Number": "", Edition: "", "Edition Code": "" };
-  const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
-  const [result] = applyResolutionToInventoryRows([row], resolved);
+test("given a row with resolution and a blank card number when applying then the card number is filled in", () => {
+  // Setup
+  const row = { "Scryfall ID": ID_ALPHA, "Card Number": "", Edition: "", "Edition Code": "" };
+  const resolution = { [ID_ALPHA]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
+
+  // Exercise
+  const [result] = applyResolutionToInventoryRows([row], resolution);
+
+  // Verify
   assert.equal(result["Card Number"], "42");
 });
 
-test("given row with resolution and existing card number when applying then scryfall value overwrites it", () => {
-  const row = { "Scryfall ID": ID_IN_INDEX, "Card Number": "99", Edition: "", "Edition Code": "" };
-  const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
-  const [result] = applyResolutionToInventoryRows([row], resolved);
+test("given a row with resolution and an existing card number when applying then the scryfall value overwrites it", () => {
+  // Setup
+  const row = { "Scryfall ID": ID_ALPHA, "Card Number": "99", Edition: "", "Edition Code": "" };
+  const resolution = { [ID_ALPHA]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
+
+  // Exercise
+  const [result] = applyResolutionToInventoryRows([row], resolution);
+
+  // Verify
   assert.equal(result["Card Number"], "42");
 });
 
-test("given row with resolution and blank language when applying then language is left blank", () => {
-  const row = { "Scryfall ID": ID_IN_INDEX, Language: "", Edition: "", "Edition Code": "" };
-  const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
-  const [result] = applyResolutionToInventoryRows([row], resolved);
+test("given a row with resolution and a blank language when applying then language is left blank", () => {
+  // Setup
+  const row = { "Scryfall ID": ID_ALPHA, Language: "", Edition: "", "Edition Code": "" };
+  const resolution = { [ID_ALPHA]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
+
+  // Exercise
+  const [result] = applyResolutionToInventoryRows([row], resolution);
+
+  // Verify
   assert.equal(result.Language, "");
 });
 
-test("given row with resolution and existing language when applying then language is left unchanged", () => {
-  const row = { "Scryfall ID": ID_IN_INDEX, Language: "Japanese", Edition: "", "Edition Code": "" };
-  const resolved = { [ID_IN_INDEX]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
-  const [result] = applyResolutionToInventoryRows([row], resolved);
+test("given a row with resolution and an existing language when applying then language is left unchanged", () => {
+  // Setup
+  const row = { "Scryfall ID": ID_ALPHA, Language: "Japanese", Edition: "", "Edition Code": "" };
+  const resolution = { [ID_ALPHA]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
+
+  // Exercise
+  const [result] = applyResolutionToInventoryRows([row], resolution);
+
+  // Verify
   assert.equal(result.Language, "Japanese");
+});
+
+test("given multiple rows with mixed resolutions when applying then each row is updated independently", () => {
+  // Setup
+  const rows = [
+    { "Scryfall ID": ID_ALPHA, Edition: "", "Edition Code": "" },
+    { "Scryfall ID": ID_MISSING, Edition: "Alpha", "Edition Code": "lea" },
+  ];
+  const resolution = { [ID_ALPHA]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
+
+  // Exercise
+  const results = applyResolutionToInventoryRows(rows, resolution);
+
+  // Verify
+  assert.equal(results[0]["Edition Code"], "mh3");
+  assert.equal(results[1]["Edition Code"], "lea");
+});
+
+test("given input rows when applying resolution then original rows are not mutated", () => {
+  // Setup
+  const row = { "Scryfall ID": ID_ALPHA, Edition: "original", "Edition Code": "orig" };
+  const resolution = { [ID_ALPHA]: { code: "mh3", name: "Modern Horizons 3", collectorNumber: "42", language: "en" } };
+
+  // Exercise
+  applyResolutionToInventoryRows([row], resolution);
+
+  // Verify
+  assert.equal(row.Edition, "original");
+  assert.equal(row["Edition Code"], "orig");
 });
 
 // ── resolveCardsByIdentifier ──────────────────────────────────────────────────
 
-test("given empty id list when resolving then both outputs are empty", async () => {
+test("given an empty identifier list when resolving then both outputs are empty", async () => {
+  // Setup
   store.clear();
+
+  // Exercise
   const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([]);
+
+  // Verify
   assert.deepEqual(resolvedByIdentifier, {});
   assert.deepEqual(unresolvedIdentifiers, []);
 });
 
-test("given ids that are not valid uuids when resolving then both outputs are empty", async () => {
+test("given identifiers that are not valid UUIDs when resolving then both outputs are empty", async () => {
+  // Setup
   store.clear();
+
+  // Exercise
   const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier(["not-a-uuid", "123", "", null as any]);
+
+  // Verify
   assert.deepEqual(resolvedByIdentifier, {});
   assert.deepEqual(unresolvedIdentifiers, []);
 });
 
-test("given cached id in localStorage when resolving then cache is returned without loading the card index", async () => {
+test("given a valid identifier present in the card index when resolving then all card fields are returned", async () => {
+  // Setup
   store.clear();
-  const entry = { code: "lea", name: "Limited Edition Alpha", collectorNumber: "1", language: "en", fetchedAt: Date.now() };
-  store.set(CARD_CACHE_KEY, JSON.stringify({ [ID_CACHED]: entry }));
-  // Poison fetch — if the index were loaded, this would throw
-  (globalThis as any).fetch = () => { throw new Error("fetch must not be called for a localStorage cache hit"); };
-  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_CACHED]);
+
+  // Exercise
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_ALPHA]);
+
+  // Verify
   assert.deepEqual(unresolvedIdentifiers, []);
-  assert.equal(resolvedByIdentifier[ID_CACHED].code, "lea");
-  // Restore for subsequent tests
-  mockFetch(CARD_INDEX);
+  assert.equal(resolvedByIdentifier[ID_ALPHA].code, "mh3");
+  assert.equal(resolvedByIdentifier[ID_ALPHA].name, "Modern Horizons 3");
+  assert.equal(resolvedByIdentifier[ID_ALPHA].collectorNumber, "42");
+  assert.equal(resolvedByIdentifier[ID_ALPHA].language, "en");
 });
 
-test("given duplicate ids when resolving then each id appears only once in the result", async () => {
+test("given an identifier absent from the card index when resolving then it appears in unresolvedIdentifiers", async () => {
+  // Setup
   store.clear();
-  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_IN_INDEX, ID_IN_INDEX, ID_IN_INDEX]);
+
+  // Exercise
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_MISSING]);
+
+  // Verify
+  assert.deepEqual(Object.keys(resolvedByIdentifier), []);
+  assert.ok(unresolvedIdentifiers.includes(ID_MISSING));
+});
+
+test("given duplicate identifiers in the input when resolving then each identifier appears only once in the result", async () => {
+  // Setup
+  store.clear();
+
+  // Exercise
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_ALPHA, ID_ALPHA, ID_ALPHA]);
+
+  // Verify
   assert.equal(Object.keys(resolvedByIdentifier).length, 1);
   assert.deepEqual(unresolvedIdentifiers, []);
 });
 
-test("given id present in card index when resolving then all card fields are returned correctly", async () => {
+test("given multiple identifiers in a single call when resolving then all are returned", async () => {
+  // Setup
   store.clear();
-  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_IN_INDEX]);
+
+  // Exercise
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_ALPHA, ID_BETA]);
+
+  // Verify
   assert.deepEqual(unresolvedIdentifiers, []);
-  assert.equal(resolvedByIdentifier[ID_IN_INDEX].code, "mh3");
-  assert.equal(resolvedByIdentifier[ID_IN_INDEX].name, "Modern Horizons 3");
-  assert.equal(resolvedByIdentifier[ID_IN_INDEX].collectorNumber, "42");
-  assert.equal(resolvedByIdentifier[ID_IN_INDEX].language, "en");
+  assert.equal(resolvedByIdentifier[ID_ALPHA].code, "mh3");
+  assert.equal(resolvedByIdentifier[ID_BETA].code, "lea");
 });
 
-test("given id absent from card index when resolving then id is placed in unresolvedIds", async () => {
+test("given a previously resolved identifier when resolving again then the result is returned without a network call", async () => {
+  // Setup: resolve once to populate the cache, then block further network access
   store.clear();
-  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_NOT_FOUND]);
-  assert.deepEqual(Object.keys(resolvedByIdentifier), []);
-  assert.ok(unresolvedIdentifiers.includes(ID_NOT_FOUND));
-});
+  mockFetch(CARD_INDEX);
+  await resolveCardsByIdentifier([ID_ALPHA]);
+  (globalThis as any).fetch = () => { throw new Error("Unexpected network call — result should be served from cache"); };
 
-test("given mix of cached and uncached ids when resolving then both sources contribute to the result", async () => {
-  store.clear();
-  const entry = { code: "lea", name: "Limited Edition Alpha", collectorNumber: "1", language: "en", fetchedAt: Date.now() };
-  store.set(CARD_CACHE_KEY, JSON.stringify({ [ID_CACHED]: entry }));
-  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_CACHED, ID_IN_INDEX]);
+  // Exercise
+  const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier([ID_ALPHA]);
+
+  // Verify
   assert.deepEqual(unresolvedIdentifiers, []);
-  assert.equal(resolvedByIdentifier[ID_CACHED].code, "lea");
-  assert.equal(resolvedByIdentifier[ID_IN_INDEX].code, "mh3");
+  assert.equal(resolvedByIdentifier[ID_ALPHA].code, "mh3");
+
+  // Teardown
+  mockFetch(CARD_INDEX);
 });
 
 // ── loadScryfallSets ──────────────────────────────────────────────────────────
 
 test("given valid sets data when loading sets then the sets array is returned", async () => {
+  // Setup
   const sets = [{ code: "mh3", name: "Modern Horizons 3" }, { code: "lea", name: "Limited Edition Alpha" }];
   mockFetch(sets);
+
+  // Exercise
   const result = await loadScryfallSets();
+
+  // Verify
   assert.deepEqual(result, sets);
 });
 
-test("given failed fetch response when loading sets then an error is thrown", async () => {
+test("given a failed fetch response when loading sets then an error is thrown", async () => {
+  // Setup
   (globalThis as any).fetch = async () => ({ ok: false, status: 503, body: new ReadableStream() });
+
+  // Exercise + Verify
   await assert.rejects(loadScryfallSets, /Failed to fetch/);
+});
+
+// ── buildScryfallCardUrl ──────────────────────────────────────────────────────
+
+test("given a card with set code and collector number when building url then a canonical scryfall url is returned", () => {
+  // Setup
+  const card = { scryfallId: ID_ALPHA, setCode: "mh3", collectorNumber: "42", language: "English" };
+
+  // Exercise
+  const url = buildScryfallCardUrl(card);
+
+  // Verify
+  assert.match(url, /^https:\/\/scryfall\.com\/card\/mh3\/42\//);
+});
+
+test("given a card without a set code when building url then the scryfall id url is returned", () => {
+  // Setup
+  const card = { scryfallId: ID_ALPHA, setCode: "", collectorNumber: "42", language: "English" };
+
+  // Exercise
+  const url = buildScryfallCardUrl(card);
+
+  // Verify
+  assert.equal(url, `https://scryfall.com/card/${ID_ALPHA}`);
+});
+
+test("given a card without a collector number when building url then the scryfall id url is returned", () => {
+  // Setup
+  const card = { scryfallId: ID_ALPHA, setCode: "mh3", collectorNumber: "", language: "English" };
+
+  // Exercise
+  const url = buildScryfallCardUrl(card);
+
+  // Verify
+  assert.equal(url, `https://scryfall.com/card/${ID_ALPHA}`);
+});
+
+test("given a card with a non-English language when building url then the language code is included in the url", () => {
+  // Setup
+  const card = { scryfallId: ID_ALPHA, setCode: "mh3", collectorNumber: "42", language: "Japanese" };
+
+  // Exercise
+  const url = buildScryfallCardUrl(card);
+
+  // Verify — Japanese maps to Scryfall code "ja"
+  assert.match(url, /\/ja\//);
+});
+
+test("given a card with an unrecognised language when building url then the url defaults to English", () => {
+  // Setup
+  const card = { scryfallId: ID_ALPHA, setCode: "mh3", collectorNumber: "42", language: "Klingon" };
+
+  // Exercise
+  const url = buildScryfallCardUrl(card);
+
+  // Verify
+  assert.match(url, /\/en\//);
 });
