@@ -21,7 +21,7 @@
     "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
-    "@carbon/styles": "1.105.0"
+    "@carbon/styles": "1.106.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
