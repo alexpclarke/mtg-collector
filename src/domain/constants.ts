@@ -1,29 +1,7 @@
 // Domain-wide constants: defaults, labels, and lookup tables shared across
 // domain logic and the UI layer. No functions, no side effects.
 
-export const DEFAULT_BOX_CAPACITY = 1200;
-export const DEFAULT_START_YEAR = 1993;
-export const DEFAULT_BINDER_TAG = "binder";
-
-export const SPECIAL_BOX_LABEL = "misc.";
-export const SPECIAL_BOX_KEYWORDS = ["the list", "mystery booster", "memorabilia"];
-export const SPECIAL_BOX_CODES = ["sld"];
-export const PROMO_FAMILY_KEYWORDS = [
-  "promo",
-  "standard showdown",
-  "grand prix",
-  "magic fest",
-  "command fest",
-  "wpn",
-  "gateway",
-  "intro pack alternate art",
-  "launch parties",
-  "friday night magic",
-  "love your lgs",
-];
-
 export const FOREIGN_BOX_LABEL = "Foreign";
-export const FOREIGN_LANGUAGE_ENGLISH = "English";
 
 export const LANGUAGES = {
   English:              { abbreviation: "EN", scryfallCode: "en" },

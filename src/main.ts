@@ -7,8 +7,12 @@
 const { createApp, ref, computed, watch, nextTick } = Vue;
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
 import { loadScryfallSets, fetchScryfallDataTimestamp, resolveCardsByIdentifier, applyResolutionToInventoryRows, buildScryfallCardUrl } from "./services/scryfall.ts";
-import { DEFAULT_BOX_CAPACITY, DEFAULT_START_YEAR, DEFAULT_BINDER_TAG, FOREIGN_BOX_LABEL } from "./domain/constants.ts";
+import { FOREIGN_BOX_LABEL } from "./domain/constants.ts";
 import "./ui/theme.ts";
+
+const DEFAULT_BOX_CAPACITY = 1100;
+const DEFAULT_START_YEAR = 1993;
+const DEFAULT_BINDER_TAG = "binder";
 import { buildSetMappings } from "./domain/sets.ts";
 import { languageAbbreviation, formatSetCode, parseRows, packSetsIntoBoxes, isForeignBoxLabel, formatForeignCodes, foreignCardsBySet } from "./domain/parsing.ts";
 import { colorForIndex } from "./ui/colors.ts";
@@ -330,6 +334,7 @@ createApp({
         const packed = packSetsIntoBoxes(parsed.packable, Number(boxCapacity.value), {
           firstBoxStartYear: startAt1993.value ? DEFAULT_START_YEAR : null,
           separateForeignLanguage: separateForeignLanguage.value,
+          mappings,
         });
 
         let colorOffset = 0;

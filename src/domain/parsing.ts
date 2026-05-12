@@ -5,28 +5,38 @@
 import { compareCollectorNumbers, sortCardsForDisplay, sortNeedsReviewRows } from "./sorting.ts";
 import { splitSetIntoCapacityChunks } from "./packing.ts";
 import { normalizeInventorySet, normalizeSetName } from "./sets.ts";
-import {
-  LANGUAGES,
-  FOREIGN_LANGUAGE_ENGLISH,
-  SPECIAL_BOX_LABEL,
-  FOREIGN_BOX_LABEL,
-  SPECIAL_BOX_CODES,
-  SPECIAL_BOX_KEYWORDS,
-  PROMO_FAMILY_KEYWORDS,
-} from "./constants.ts";
+import { LANGUAGES, FOREIGN_BOX_LABEL } from "./constants.ts";
+
+const FOREIGN_LANGUAGE_ENGLISH = "English";
+const SPECIAL_BOX_LABEL = "misc.";
+const SPECIAL_BOX_CODES = ["sld"];
+const SPECIAL_BOX_KEYWORDS = ["the list", "mystery booster", "memorabilia"];
+const PROMO_FAMILY_KEYWORDS = [
+  "promo",
+  "standard showdown",
+  "grand prix",
+  "magic fest",
+  "command fest",
+  "wpn",
+  "gateway",
+  "intro pack alternate art",
+  "launch parties",
+  "friday night magic",
+  "love your lgs",
+];
 
 // Returns true if the row's Tags column contains the exact binder tag
 // (case-insensitive, comma-delimited). Binder rows are counted separately
 // and excluded from box packing.
-export function rowHasBinderTag(row, binderTag) {
+export function rowHasTag(row, tag) {
   const tags = (row.Tags || "").trim();
-  const normalizedBinderTag = String(binderTag || "").trim().toLowerCase();
-  if (!normalizedBinderTag) return false;
+  const normalizedTag = String(tag || "").trim().toLowerCase();
+  if (!normalizedTag) return false;
   if (!tags) return false;
   return tags
     .split(",")
     .map((x) => x.trim().toLowerCase())
-    .includes(normalizedBinderTag);
+    .includes(normalizedTag);
 }
 
 // Returns the 2-3 character display abbreviation for a language (e.g. "JP").
@@ -53,17 +63,41 @@ export function extractYear(text) {
 // Determines whether a set should be routed to the "misc." box rather than
 // a year-labelled box. Catches Secret Lair, memorabilia, standalone promos,
 // and sets whose names contain well-known special-product keywords.
-export function isSpecialSet(setInfo) {
-  const codeLower = String(setInfo.code || "").toLowerCase();
+export function isSpecialSet(setInfo, mappings = null) {
+  const resolved = mappings ? resolveRootSet(setInfo, mappings) : setInfo;
+  const codeLower = String(resolved.code || "").toLowerCase();
   if (SPECIAL_BOX_CODES.includes(codeLower)) return true;
-  const nameLower = String(setInfo.name || setInfo.code || "").toLowerCase();
+  const nameLower = String(resolved.name || resolved.code || "").toLowerCase();
   if (SPECIAL_BOX_KEYWORDS.some((k) => nameLower.includes(k))) return true;
-  const setType = String(setInfo.setType || "").toLowerCase();
-  const hasParentSet = Boolean(setInfo.hasParentSet);
-  if (setType === "memorabilia") return true;
-  if (setType === "promo" && !hasParentSet) return true;
+  const setType = String(resolved.setType || "").toLowerCase();
+  if (["memorabilia", "spellbook", "promo"].includes(setType)) return true;
   if (!setType && PROMO_FAMILY_KEYWORDS.some((k) => nameLower.includes(k))) return true;
   return false;
+}
+
+// Walks the parent_set_code chain in mappings and returns a setInfo-shaped
+// object for the root ancestor of the given set. Throws if a cycle is detected
+// (i.e. the same code appears twice during traversal).
+export function resolveRootSet(setInfo, mappings) {
+  const seen = new Set();
+  let code = String(setInfo.code || "").toLowerCase().replace(/@\d+$/, "");
+
+  while (true) {
+    if (seen.has(code)) {
+      throw new Error(`Circular parent set reference detected at code: "${code}"`);
+    }
+    seen.add(code);
+    const parent = mappings.parentCodeByAlias[code];
+    if (!parent || parent === code) break;
+    code = parent;
+  }
+
+  const meta = mappings.metaByCode[code] || { setType: "" };
+  return {
+    code,
+    name: mappings.setNameByCode[code] || setInfo.name || code,
+    setType: meta.setType,
+  };
 }
 
 // Produces a lexicographically sortable string key for a set so that sets
@@ -142,7 +176,7 @@ export function parseRows(rows, mappings, binderTag, separateForeignLanguage = t
   let binderTotal = 0;
 
   for (const row of rows) {
-    const isBinder = rowHasBinderTag(row, binderTag);
+    const isBinder = rowHasTag(row, binderTag);
     const tradelistCountRaw = String(row["Tradelist Count"] || "").trim();
     const count = tradelistCountRaw ? Number(tradelistCountRaw) : 0;
     if (!Number.isFinite(count) || count <= 0) continue;
@@ -317,7 +351,7 @@ export function parseRows(rows, mappings, binderTag, separateForeignLanguage = t
 //   5. Sort each box’s contents by release date for display
 // Returns an array of box objects: { label, totalCount, sets[] }.
 export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
-  const { firstBoxStartYear = null, separateForeignLanguage = true } = options;
+  const { firstBoxStartYear = null, separateForeignLanguage = true, mappings = null } = options;
   function closeBox(contents, total, labelOverride = null) {
     if (labelOverride) return { label: labelOverride, totalCount: total, sets: contents };
     const years = contents.map((x) => x.year).filter(Boolean);
@@ -356,8 +390,8 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
   const foreign = capacityAdjustedSets.filter(isForeignSet);
   let remaining = capacityAdjustedSets.filter((s) => !isForeignSet(s));
 
-  const special = remaining.filter(isSpecialSet);
-  remaining = remaining.filter((s) => !isSpecialSet(s));
+  const special = remaining.filter((s) => isSpecialSet(s, mappings));
+  remaining = remaining.filter((s) => !isSpecialSet(s, mappings));
 
   const known = remaining.filter((s) => s.year);
 
