@@ -5,7 +5,8 @@
 import { compareCollectorNumbers, sortCardsForDisplay, sortNeedsReviewRows } from "./sorting.ts";
 import { splitSetIntoCapacityChunks } from "./packing.ts";
 import { normalizeInventorySet, normalizeSetName } from "./sets.ts";
-import { LANGUAGES, FOREIGN_BOX_LABEL } from "./constants.ts";
+import { Language } from "./language.ts";
+import { FOREIGN_BOX_LABEL } from "./constants.ts";
 
 const FOREIGN_LANGUAGE_ENGLISH = "English";
 const SPECIAL_BOX_LABEL = "misc.";
@@ -43,7 +44,7 @@ export function rowHasTag(row, tag) {
 // Falls back to the first two characters of the language name if the language
 // isn’t in the LANGUAGES constant (handles future/unknown languages gracefully).
 export function languageAbbreviation(language) {
-  return LANGUAGES[language]?.abbreviation || (language || "UN").slice(0, 2).toUpperCase();
+  return Language.fromName(language)?.abbreviation || (language || "UN").slice(0, 2).toUpperCase();
 }
 
 // Uppercases a set code for consistent display (e.g. "lea" → "LEA").
@@ -166,7 +167,7 @@ export function finalizeCardList(entry) {
 //   - Routes unresolvable sets (no year) to the review list
 //   - Accumulates all remaining rows into grouped set entries
 // Returns { packable, binderTotal, missingEditionList, missingEditionTotal }.
-export function parseRows(rows, mappings, binderTag, separateForeignLanguage = true) {
+export function parseRows(rows, mappings, binderTag, separateForeignLanguage = true, nativeLanguage = FOREIGN_LANGUAGE_ENGLISH) {
   const grouped = new Map();
   const yearsPerCode = new Map();
   const foreign = new Map();
@@ -189,7 +190,7 @@ export function parseRows(rows, mappings, binderTag, separateForeignLanguage = t
     const cardName = String(row.Name || "").trim();
     const editionCodeRaw = String(row["Edition Code"] || "").trim();
     const editionNameRaw = String(row.Edition || "").trim();
-    const language = String(row.Language || "").trim() || FOREIGN_LANGUAGE_ENGLISH;
+    const language = String(row.Language || "").trim() || nativeLanguage;
     const collectorNumber = String(row["Card Number"] || "").trim();
     const scryfallId = String(row["Scryfall ID"] || "").trim() || null;
 
@@ -229,7 +230,7 @@ export function parseRows(rows, mappings, binderTag, separateForeignLanguage = t
 
     const meta = mappings.metaByCode[code] || nameMatch || { setType: "", hasParentSet: false };
 
-    if (separateForeignLanguage && language !== FOREIGN_LANGUAGE_ENGLISH) {
+    if (separateForeignLanguage && language !== nativeLanguage) {
       const key = language;
       const existing = foreign.get(key) || {
         code: `lang-${languageAbbreviation(language).toLowerCase()}`,
@@ -351,7 +352,7 @@ export function parseRows(rows, mappings, binderTag, separateForeignLanguage = t
 //   5. Sort each box’s contents by release date for display
 // Returns an array of box objects: { label, totalCount, sets[] }.
 export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
-  const { firstBoxStartYear = null, separateForeignLanguage = true, mappings = null } = options;
+  const { firstBoxStartYear = null, separateForeignLanguage = true, mappings = null, nativeLanguage = FOREIGN_LANGUAGE_ENGLISH } = options;
   function closeBox(contents, total, labelOverride = null) {
     if (labelOverride) return { label: labelOverride, totalCount: total, sets: contents };
     const years = contents.map((x) => x.year).filter(Boolean);
@@ -386,7 +387,7 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
 
   const capacityAdjustedSets = sets.flatMap((s) => splitSetIntoCapacityChunks(s, boxCapacity));
 
-  const isForeignSet = (s) => separateForeignLanguage && s.language && s.language !== FOREIGN_LANGUAGE_ENGLISH;
+  const isForeignSet = (s) => separateForeignLanguage && s.language && s.language !== nativeLanguage;
   const foreign = capacityAdjustedSets.filter(isForeignSet);
   let remaining = capacityAdjustedSets.filter((s) => !isForeignSet(s));
 

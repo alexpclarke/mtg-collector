@@ -8,6 +8,12 @@ export default [
   },
   js.configs.recommended,
   {
+    rules: {
+      "array-element-newline": ["error", "consistent"],
+      "array-bracket-newline": ["error", "consistent"],
+    },
+  },
+  {
     files: ["src/**/*.ts"],
     languageOptions: {
       parser: tsParser,

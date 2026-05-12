@@ -11,7 +11,7 @@
 // are also cached (3-day negative TTL) to avoid hammering the index on
 // repeated runs with the same unresolvable identifiers.
 // @ts-nocheck
-import { LANGUAGES } from "../domain/constants.ts";
+import { Language } from "../domain/language.ts";
 
 const CARD_CACHE_STORAGE_KEY = "box-packer-scryfall-cards-by-id-v1";
 const POSITIVE_CACHE_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -260,7 +260,7 @@ export async function loadScryfallSets() {
 export function buildScryfallCardUrl(card) {
   const setCode = String(card.setCode || "").toLowerCase();
   const collectorNumber = String(card.collectorNumber || "");
-  const languageCode = LANGUAGES[card.language]?.scryfallCode || "en";
+  const languageCode = Language.fromName(card.language)?.scryfallCode ?? "en";
   if (setCode && collectorNumber) {
     return `https://scryfall.com/card/${setCode}/${collectorNumber}/${languageCode}/`;
   }

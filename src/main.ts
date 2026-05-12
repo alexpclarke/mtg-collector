@@ -8,6 +8,7 @@ const { createApp, ref, computed, watch, nextTick } = Vue;
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
 import { loadScryfallSets, fetchScryfallDataTimestamp, resolveCardsByIdentifier, applyResolutionToInventoryRows, buildScryfallCardUrl } from "./services/scryfall.ts";
 import { FOREIGN_BOX_LABEL } from "./domain/constants.ts";
+import { Language } from "./domain/language.ts";
 import "./ui/theme.ts";
 
 const DEFAULT_BOX_CAPACITY = 1100;
@@ -54,6 +55,7 @@ createApp({
     const binderTag = ref(DEFAULT_BINDER_TAG);
     const resolveScryfallCardNumbers = ref(true);
     const separateForeignLanguage = ref(true);
+    const nativeLanguage = ref(Language.English.name);
     const reviewOpen = ref(false);
     const boxModalEl = ref(null);
     const setModalEl = ref(null);
@@ -123,7 +125,10 @@ createApp({
         return "When enabled, collector numbers are resolved from Scryfall for accuracy. When disabled, the input values are used as-is.";
       }
       if (key === "separate-foreign") {
-        return "When enabled, non-English cards are grouped together and packed into dedicated Foreign boxes at the end. When disabled, they are packed in with their set by release year.";
+        return "When enabled, non-native-language cards are grouped together and packed into dedicated Foreign boxes at the end. When disabled, they are packed in with their set by release year.";
+      }
+      if (key === "native-language") {
+        return "Cards in this language are treated as your native collection. Cards in any other language are routed to the Foreign box when separation is enabled.";
       }
       return "";
     }
@@ -312,7 +317,7 @@ createApp({
         ]);
 
         const mappings = buildSetMappings(scryfallSets);
-        const firstPass = parseRows(rows, mappings, binderTag.value, separateForeignLanguage.value);
+        const firstPass = parseRows(rows, mappings, binderTag.value, separateForeignLanguage.value, nativeLanguage.value);
 
         let rowsToParse = rows;
         let unresolvedLookupIds = [];
@@ -330,10 +335,11 @@ createApp({
           }
         }
 
-        const parsed = parseRows(rowsToParse, mappings, binderTag.value, separateForeignLanguage.value);
+        const parsed = parseRows(rowsToParse, mappings, binderTag.value, separateForeignLanguage.value, nativeLanguage.value);
         const packed = packSetsIntoBoxes(parsed.packable, Number(boxCapacity.value), {
           firstBoxStartYear: startAt1993.value ? DEFAULT_START_YEAR : null,
           separateForeignLanguage: separateForeignLanguage.value,
+          nativeLanguage: nativeLanguage.value,
           mappings,
         });
 
@@ -422,6 +428,8 @@ createApp({
       startAt1993,
       binderTag,
       separateForeignLanguage,
+      nativeLanguage,
+      Language,
       resolveScryfallCardNumbers,
       reviewOpen,
       boxModalEl,
@@ -643,6 +651,41 @@ createApp({
                       <label class="cds--checkbox-label" for="separate-foreign">
                         Enabled
                       </label>
+                    </div>
+                  </div>
+
+                  <div class="cds--layer settings-item">
+                    <div class="settings-item-head">
+                      <label class="cds--label" for="native-language">Native language</label>
+                      <span class="settings-info">
+                        <span
+                          class="cds--tooltip-trigger__wrapper settings-info-trigger"
+                          tabindex="0"
+                          aria-label="Native language setting info"
+                          :aria-describedby="openSettingsTooltip === 'native-language' ? 'settings-tooltip' : undefined"
+                          @mouseenter="showSettingsTooltip('native-language', $event)"
+                          @mouseleave="hideSettingsTooltip('native-language')"
+                          @mousemove="updateSettingsTooltipPosition($event)"
+                          @focus="showSettingsTooltip('native-language', $event)"
+                          @blur="hideSettingsTooltip('native-language')"
+                          @keydown.esc.stop.prevent="hideSettingsTooltip('native-language')"
+                        >
+                          <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                            <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
+                            <path d="M8.5 11h-1V7h1zm0-6h-1V4h1z"></path>
+                          </svg>
+                        </span>
+                      </span>
+                    </div>
+                    <div class="cds--select settings-input">
+                      <div class="cds--select-input-wrapper">
+                        <select id="native-language" class="cds--select-input" v-model="nativeLanguage">
+                          <option v-for="lang in Language.ALL" :key="lang.name" :value="lang.name">{{ lang.name }}</option>
+                        </select>
+                        <svg class="cds--select__arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                          <path d="M8 11L3 6l.7-.7L8 9.6l4.3-4.3.7.7z"/>
+                        </svg>
+                      </div>
                     </div>
                   </div>
 
