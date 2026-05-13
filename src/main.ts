@@ -110,6 +110,19 @@ createApp({
       "native-language": nativeLanguage,
       "resolve-scryfall": resolveScryfallCardNumbers,
     });
+    // ── Active settings (snapshot) ────────────────────────────────────────────
+    // Frozen copies of the file and settings at the moment run() last succeeded.
+    // Used to detect whether anything has changed since the last run.
+    const activeFile = ref(null);
+    const activeSettings = ref(Object.fromEntries(SETTINGS.map((s) => [s.id, s.defaultValue])));
+
+    // Returns a cheap identity string for a File object using its stable
+    // metadata. Two File objects pointing at the same on-disk file produce the
+    // same fingerprint even though they are different JS objects.
+    function fileFingerprint(f) {
+      return f ? `${f.name}|${f.size}|${f.lastModified}` : null;
+    }
+
     const reviewOpen = ref(false);
     const boxModalEl = ref(null);
     const setModalEl = ref(null);
@@ -118,11 +131,16 @@ createApp({
 
     // Total number of packed boxes — displayed in the results summary.
     const boxCount = computed(() => boxes.value.length);
-    // True when all preconditions for running are met: a file is selected and
-    // the box capacity is a positive finite number.
+    // True when all preconditions for running are met: a file is selected,
+    // the box capacity is valid, and the current file+settings differ from
+    // what already produced the displayed output.
     const canRun = computed(() => {
       const capacity = Number(boxCapacity.value);
-      return Boolean(file.value) && Number.isFinite(capacity) && capacity > 0;
+      if (!file.value || !Number.isFinite(capacity) || capacity <= 0) return false;
+      if (!boxes.value.length) return true;
+      const fileChanged = fileFingerprint(file.value) !== fileFingerprint(activeFile.value);
+      const settingsChanged = SETTINGS.some((s) => settingRefs[s.id] !== activeSettings.value[s.id]);
+      return fileChanged || settingsChanged;
     });
 
     // ── Settings helpers ──────────────────────────────────────────────────────
@@ -380,6 +398,8 @@ createApp({
 
         boxes.value = packed;
         selectedBoxIndex.value = null;
+        activeFile.value = file.value;
+        activeSettings.value = Object.fromEntries(SETTINGS.map((s) => [s.id, settingRefs[s.id]]));
         binderTotal.value = parsed.binderTotal;
         missingEditionList.value = parsed.missingEditionList;
         missingEditionTotal.value = parsed.missingEditionTotal;
@@ -414,6 +434,8 @@ createApp({
     }
 
     return {
+      activeSettings,
+      activeFile,
       file,
       boxCapacity,
       loading,
@@ -721,7 +743,7 @@ createApp({
         <div class="box-top">
           <div class="box-index cds--heading-compact-01">{{ i + 1 }}</div>
           <button type="button" class="box-label-link cds--link cds--productive-heading-03" @click="selectedBoxIndex = i">{{ box.label }}</button>
-          <div class="box-total cds--body-compact-01">{{ box.totalCount }} / {{ boxCapacity }}</div>
+          <div class="box-total cds--body-compact-01">{{ box.totalCount }} / {{ activeSettings["box-capacity"] }}</div>
         </div>
 
         <div class="track">
@@ -730,7 +752,7 @@ createApp({
             :key="idx + s.code"
             :class="['segment', { 'segment-active': isHoveredSegment(i, idx) }]"
             tabindex="0"
-            :style="{ width: Math.max(0.2, (s.count / Math.max(boxCapacity, box.totalCount)) * 100) + '%', background: colorForIndex(box.colorOffset + idx) }"
+            :style="{ width: Math.max(0.2, (s.count / Math.max(activeSettings['box-capacity'], box.totalCount)) * 100) + '%', background: colorForIndex(box.colorOffset + idx) }"
             @mouseenter="onSegmentEnter(i, idx, s, $event)"
             @mousemove="onSegmentMove($event)"
             @mouseleave="onSegmentLeave(i, idx)"
@@ -861,7 +883,7 @@ createApp({
                     >
                       <span class="card-count">{{ card.count }}x</span>
                       <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                      <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? buildScryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
+                      <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? buildScryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!activeSettings['separate-foreign'] && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
                     </div>
                   </div>
                 </div>
@@ -913,7 +935,7 @@ createApp({
                   >
                     <span class="card-count">{{ card.count }}x</span>
                     <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                    <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? buildScryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
+                    <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? buildScryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!activeSettings['separate-foreign'] && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
                   </div>
                 </div>
               </div>
@@ -931,7 +953,7 @@ createApp({
               >
                 <span class="card-count">{{ card.count }}x</span>
                 <span class="card-number" v-if="card.collectorNumber">{{ card.collectorNumber }}</span>
-                <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? buildScryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!separateForeignLanguage && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
+                <component :is="card.scryfallId ? 'a' : 'span'" class="card-name" :class="{ 'card-link': card.scryfallId }" :href="card.scryfallId ? buildScryfallCardUrl(card) : undefined" target="_blank" rel="noopener noreferrer" @click.stop>{{ card.name }}<span v-if="!activeSettings['separate-foreign'] && card.language && card.language !== 'English'" class="card-language-tag"> {{ languageAbbreviation(card.language) }}</span><span v-if="card.foil" class="foil-indicator">★</span></component>
               </div>
             </div>
           </div>
