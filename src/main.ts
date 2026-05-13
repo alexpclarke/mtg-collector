@@ -4,7 +4,7 @@
 // This file intentionally contains no business logic — it only wires together
 // the imported modules and exposes the resulting state/methods to the template.
 // @ts-nocheck
-const { createApp, ref, computed, watch, nextTick } = Vue;
+const { createApp, ref, computed, watch, nextTick, reactive } = Vue;
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
 import { loadScryfallSets, fetchScryfallDataTimestamp, resolveCardsByIdentifier, applyResolutionToInventoryRows, buildScryfallCardUrl } from "./services/scryfall.ts";
 import { FOREIGN_BOX_LABEL } from "./domain/constants.ts";
@@ -19,11 +19,57 @@ import { languageAbbreviation, formatSetCode, parseRows, packSetsIntoBoxes, isFo
 import { colorForIndex } from "./ui/colors.ts";
 import { getTooltipPosition, cardsForBox, boxModalColumns, cardRowKey } from "./ui/layout.ts";
 import { openExternalLink, trapModalFocus } from "./ui/dom.ts";
+import { CheckboxSetting, IntegerSetting, TextSetting, DropdownSetting } from "./ui/settings.ts";
+
+const SETTINGS = [
+  new CheckboxSetting(
+    "start-at-1993",
+    "Start at 1993",
+    "Checked: first box starts at 1993. Unchecked: starts at your oldest year.",
+    true,
+  ),
+  new IntegerSetting(
+    "box-capacity",
+    "Box capacity",
+    "Maximum cards allowed in each packed box. Default is 1100.",
+    DEFAULT_BOX_CAPACITY,
+    1,
+    null,
+    1,
+  ),
+  new TextSetting(
+    "binder-tag",
+    "Binder tag",
+    "Rows with this exact tag in the Tags column are counted as binder cards and excluded from box packing.",
+    DEFAULT_BINDER_TAG,
+  ),
+  new CheckboxSetting(
+    "separate-foreign",
+    "Separate foreign language cards",
+    "When enabled, non-native-language cards are grouped together and packed into dedicated Foreign boxes at the end. When disabled, they are packed in with their set by release year.",
+    true,
+  ),
+  new DropdownSetting(
+    "native-language",
+    "Native language",
+    "Cards in this language are treated as your native collection. Cards in any other language are routed to the Foreign box when separation is enabled.",
+    Language.English.name,
+    Language.getNames().map((n) => ({ value: n, label: n })),
+  ),
+  new CheckboxSetting(
+    "resolve-scryfall",
+    "Resolve collector numbers from Scryfall",
+    "When enabled, collector numbers are resolved from Scryfall for accuracy. When disabled, the input values are used as-is.",
+    true,
+  ),
+];
+
+const SETTINGS_BY_ID = Object.fromEntries(SETTINGS.map((s) => [s.id, s]));
 
 createApp({
   setup() {
     const file = ref(null);
-    const boxCapacity = ref(DEFAULT_BOX_CAPACITY);
+    const boxCapacity = ref(SETTINGS_BY_ID["box-capacity"].defaultValue);
     const loading = ref(false);
     const error = ref("");
     const isFileDragOver = ref(false);
@@ -51,11 +97,19 @@ createApp({
     const settingsOpen = ref(false);
     const openSettingsTooltip = ref("");
     const settingsTooltipPosition = ref({ x: 0, y: 0 });
-    const startAt1993 = ref(true);
-    const binderTag = ref(DEFAULT_BINDER_TAG);
-    const resolveScryfallCardNumbers = ref(true);
-    const separateForeignLanguage = ref(true);
-    const nativeLanguage = ref(Language.English.name);
+    const startAt1993 = ref(SETTINGS_BY_ID["start-at-1993"].defaultValue);
+    const binderTag = ref(SETTINGS_BY_ID["binder-tag"].defaultValue);
+    const resolveScryfallCardNumbers = ref(SETTINGS_BY_ID["resolve-scryfall"].defaultValue);
+    const separateForeignLanguage = ref(SETTINGS_BY_ID["separate-foreign"].defaultValue);
+    const nativeLanguage = ref(SETTINGS_BY_ID["native-language"].defaultValue);
+    const settingRefs = reactive({
+      "start-at-1993": startAt1993,
+      "box-capacity": boxCapacity,
+      "binder-tag": binderTag,
+      "separate-foreign": separateForeignLanguage,
+      "native-language": nativeLanguage,
+      "resolve-scryfall": resolveScryfallCardNumbers,
+    });
     const reviewOpen = ref(false);
     const boxModalEl = ref(null);
     const setModalEl = ref(null);
@@ -73,27 +127,18 @@ createApp({
 
     // ── Settings helpers ──────────────────────────────────────────────────────
 
-    // Clamps and truncates a raw capacity input to a positive integer.
-    function normalizeCapacityValue(value) {
-      const parsed = Number(value);
-      if (!Number.isFinite(parsed)) return 1;
-      return Math.max(1, Math.trunc(parsed));
-    }
-
     // Increments or decrements the box capacity by delta (used by +/- buttons).
     function adjustBoxCapacity(delta) {
-      boxCapacity.value = normalizeCapacityValue((Number(boxCapacity.value) || 0) + delta);
+      const setting = SETTINGS_BY_ID["box-capacity"];
+      boxCapacity.value = setting.normalize((Number(boxCapacity.value) || 0) + delta);
     }
 
-    // Normalises the capacity input on blur (clamp + truncate).
-    function normalizeBoxCapacity() {
-      boxCapacity.value = normalizeCapacityValue(boxCapacity.value);
-    }
-
-    // Trims the binder tag on blur and resets to the default if left blank.
-    function normalizeBinderTag() {
-      const normalized = String(binderTag.value || "").trim();
-      binderTag.value = normalized || DEFAULT_BINDER_TAG;
+    // Delegates blur normalisation to the setting's own normalize() method.
+    function normalizeSettingValue(settingId) {
+      const setting = SETTINGS_BY_ID[settingId];
+      if (setting?.normalize) {
+        settingRefs[settingId] = setting.normalize(settingRefs[settingId]);
+      }
     }
 
     // Records which settings tooltip is open and positions it near the trigger.
@@ -112,25 +157,7 @@ createApp({
     // Returns the help text for a given settings field key.
     // Kept in JS rather than the template to keep the template readable.
     function settingsTooltipText(key) {
-      if (key === "start-at-1993") {
-        return "Checked: first box starts at 1993. Unchecked: starts at your oldest year.";
-      }
-      if (key === "box-capacity") {
-        return "Maximum cards allowed in each packed box. Default is 1200.";
-      }
-      if (key === "binder-tag") {
-        return "Rows with this exact tag in the Tags column are counted as binder cards and excluded from box packing.";
-      }
-      if (key === "resolve-scryfall") {
-        return "When enabled, collector numbers are resolved from Scryfall for accuracy. When disabled, the input values are used as-is.";
-      }
-      if (key === "separate-foreign") {
-        return "When enabled, non-native-language cards are grouped together and packed into dedicated Foreign boxes at the end. When disabled, they are packed in with their set by release year.";
-      }
-      if (key === "native-language") {
-        return "Cards in this language are treated as your native collection. Cards in any other language are routed to the Foreign box when separation is enabled.";
-      }
-      return "";
+      return SETTINGS.find((s) => s.id === key)?.tooltipText ?? "";
     }
 
     // Allows clicking anywhere in a settings card row to toggle its checkbox,
@@ -167,8 +194,10 @@ createApp({
       const settingCard = target.closest('.settings-item');
       if (!settingCard) return;
 
-      const input = settingCard.querySelector('.cds--text-input, .cds--number__input');
-      if (input instanceof HTMLElement) {
+      const input = settingCard.querySelector('.cds--text-input, .cds--number__input, .cds--select-input');
+      if (input instanceof HTMLSelectElement) {
+        input.click();
+      } else if (input instanceof HTMLElement) {
         input.focus();
       }
     }
@@ -403,13 +432,14 @@ createApp({
       onFileDragLeave,
       onFileDrop,
       adjustBoxCapacity,
-      normalizeBoxCapacity,
-      normalizeBinderTag,
       openSettingsTooltip,
       settingsTooltipPosition,
       showSettingsTooltip,
       hideSettingsTooltip,
+      SETTINGS,
+      settingRefs,
       settingsTooltipText,
+      normalizeSettingValue,
       updateSettingsTooltipPosition,
       toggleSettingCheckbox,
       focusSettingInput,
@@ -429,7 +459,6 @@ createApp({
       binderTag,
       separateForeignLanguage,
       nativeLanguage,
-      Language,
       resolveScryfallCardNumbers,
       reviewOpen,
       boxModalEl,
@@ -493,21 +522,28 @@ createApp({
             <div class="cds--accordion__wrapper">
               <div class="cds--accordion__content">
                 <div class="settings-grid" @click="focusSettingInput($event)">
-                  <div class="cds--layer settings-item settings-item--toggle" @click="toggleSettingCheckbox($event, 'start-at-1993')">
+                  <div
+                    v-for="setting in SETTINGS"
+                    :key="setting.id"
+                    class="cds--layer settings-item"
+                    :class="{ 'settings-item--toggle': setting.isToggle }"
+                    @click="setting.isToggle && toggleSettingCheckbox($event, setting.id)"
+                  >
                     <div class="settings-item-head">
-                      <span class="cds--label">Start at 1993</span>
+                      <label v-if="!setting.isToggle" class="cds--label" :for="setting.id">{{ setting.label }}</label>
+                      <span v-else class="cds--label">{{ setting.label }}</span>
                       <span class="settings-info">
                         <span
                           class="cds--tooltip-trigger__wrapper settings-info-trigger"
                           tabindex="0"
-                          aria-label="Start at 1993 setting info"
-                          :aria-describedby="openSettingsTooltip === 'start-at-1993' ? 'settings-tooltip' : undefined"
-                          @mouseenter="showSettingsTooltip('start-at-1993', $event)"
-                          @mouseleave="hideSettingsTooltip('start-at-1993')"
+                          :aria-label="setting.label + ' setting info'"
+                          :aria-describedby="openSettingsTooltip === setting.id ? 'settings-tooltip' : undefined"
+                          @mouseenter="showSettingsTooltip(setting.id, $event)"
+                          @mouseleave="hideSettingsTooltip(setting.id)"
                           @mousemove="updateSettingsTooltipPosition($event)"
-                          @focus="showSettingsTooltip('start-at-1993', $event)"
-                          @blur="hideSettingsTooltip('start-at-1993')"
-                          @keydown.esc.stop.prevent="hideSettingsTooltip('start-at-1993')"
+                          @focus="showSettingsTooltip(setting.id, $event)"
+                          @blur="hideSettingsTooltip(setting.id)"
+                          @keydown.esc.stop.prevent="hideSettingsTooltip(setting.id)"
                         >
                           <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
                             <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
@@ -517,212 +553,87 @@ createApp({
                       </span>
                     </div>
 
-                    <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
-                      <input id="start-at-1993" class="cds--checkbox" type="checkbox" v-model="startAt1993" />
-                      <label for="start-at-1993" class="cds--checkbox-label">Enabled</label>
-                    </div>
-                  </div>
-
-                  <div class="cds--layer settings-item">
-                    <div class="settings-item-head">
-                      <label class="cds--label" for="capacity">Box capacity</label>
-                      <span class="settings-info">
-                        <span
-                          class="cds--tooltip-trigger__wrapper settings-info-trigger"
-                          tabindex="0"
-                          aria-label="Box capacity setting info"
-                          :aria-describedby="openSettingsTooltip === 'box-capacity' ? 'settings-tooltip' : undefined"
-                          @mouseenter="showSettingsTooltip('box-capacity', $event)"
-                          @mouseleave="hideSettingsTooltip('box-capacity')"
-                          @mousemove="updateSettingsTooltipPosition($event)"
-                          @focus="showSettingsTooltip('box-capacity', $event)"
-                          @blur="hideSettingsTooltip('box-capacity')"
-                          @keydown.esc.stop.prevent="hideSettingsTooltip('box-capacity')"
-                        >
-                          <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                            <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
-                            <path d="M8.5 11h-1V7h1zm0-6h-1V4h1z"></path>
-                          </svg>
-                        </span>
-                      </span>
-                    </div>
-                    <div class="cds--number settings-input" data-number>
-                      <div class="cds--number__input-wrapper">
-                        <input
-                          id="capacity"
-                          class="cds--number__input"
-                          type="number"
-                          min="1"
-                          step="1"
-                          v-model.number="boxCapacity"
-                          @blur="normalizeBoxCapacity"
+                    <template v-if="setting.type === 'checkbox'">
+                      <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
+                        <input :id="setting.id" class="cds--checkbox" type="checkbox"
+                          :checked="settingRefs[setting.id]"
+                          @change="settingRefs[setting.id] = $event.target.checked"
                         />
-                        <div class="cds--number__controls">
-                          <button
-                            type="button"
-                            class="cds--number__control-btn down-icon"
-                            aria-label="Decrease box capacity"
-                            @click="adjustBoxCapacity(-1)"
-                          >
-                            <svg class="down-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                              <path d="M4 8h8v1H4z"></path>
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            class="cds--number__control-btn up-icon"
-                            aria-label="Increase box capacity"
-                            @click="adjustBoxCapacity(1)"
-                          >
-                            <svg class="up-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                              <path d="M8 4h1v4h4v1H9v4H8V9H4V8h4z"></path>
-                            </svg>
-                          </button>
-                          <span class="cds--number__rule-divider"></span>
+                        <label :for="setting.id" class="cds--checkbox-label">Enabled</label>
+                      </div>
+                    </template>
+
+                    <template v-else-if="setting.type === 'integer'">
+                      <div class="cds--number settings-input" data-number>
+                        <div class="cds--number__input-wrapper">
+                          <input
+                            :id="setting.id"
+                            class="cds--number__input"
+                            type="number"
+                            :min="setting.min"
+                            :step="setting.step"
+                            :value="settingRefs[setting.id]"
+                            @input="settingRefs[setting.id] = Number($event.target.value)"
+                            @blur="normalizeSettingValue(setting.id)"
+                          />
+                          <div class="cds--number__controls">
+                            <button
+                              type="button"
+                              class="cds--number__control-btn down-icon"
+                              aria-label="Decrease box capacity"
+                              @click="adjustBoxCapacity(-1)"
+                            >
+                              <svg class="down-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                                <path d="M4 8h8v1H4z"></path>
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              class="cds--number__control-btn up-icon"
+                              aria-label="Increase box capacity"
+                              @click="adjustBoxCapacity(1)"
+                            >
+                              <svg class="up-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                                <path d="M8 4h1v4h4v1H9v4H8V9H4V8h4z"></path>
+                              </svg>
+                            </button>
+                            <span class="cds--number__rule-divider"></span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
+                    </template>
 
-                  <div class="cds--layer settings-item">
-                    <div class="settings-item-head">
-                      <label class="cds--label" for="binder-tag">Binder tag</label>
-                      <span class="settings-info">
-                        <span
-                          class="cds--tooltip-trigger__wrapper settings-info-trigger"
-                          tabindex="0"
-                          aria-label="Binder tag setting info"
-                          :aria-describedby="openSettingsTooltip === 'binder-tag' ? 'settings-tooltip' : undefined"
-                          @mouseenter="showSettingsTooltip('binder-tag', $event)"
-                          @mouseleave="hideSettingsTooltip('binder-tag')"
-                          @mousemove="updateSettingsTooltipPosition($event)"
-                          @focus="showSettingsTooltip('binder-tag', $event)"
-                          @blur="hideSettingsTooltip('binder-tag')"
-                          @keydown.esc.stop.prevent="hideSettingsTooltip('binder-tag')"
-                        >
-                          <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                            <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
-                            <path d="M8.5 11h-1V7h1zm0-6h-1V4h1z"></path>
-                          </svg>
-                        </span>
-                      </span>
-                    </div>
-                    <div class="cds--text-input-wrapper settings-input">
-                      <input
-                        id="binder-tag"
-                        class="cds--text-input"
-                        type="text"
-                        v-model.trim="binderTag"
-                        @blur="normalizeBinderTag"
-                      />
-                    </div>
-                  </div>
-
-                  <div class="cds--layer settings-item settings-item--toggle" @click="toggleSettingCheckbox($event, 'separate-foreign')">
-                    <div class="settings-item-head">
-                      <span class="cds--label">Separate foreign language cards</span>
-                      <span class="settings-info">
-                        <span
-                          class="cds--tooltip-trigger__wrapper settings-info-trigger"
-                          tabindex="0"
-                          aria-label="Separate foreign language cards setting info"
-                          :aria-describedby="openSettingsTooltip === 'separate-foreign' ? 'settings-tooltip' : undefined"
-                          @mouseenter="showSettingsTooltip('separate-foreign', $event)"
-                          @mouseleave="hideSettingsTooltip('separate-foreign')"
-                          @mousemove="updateSettingsTooltipPosition($event)"
-                          @focus="showSettingsTooltip('separate-foreign', $event)"
-                          @blur="hideSettingsTooltip('separate-foreign')"
-                          @keydown.esc.stop.prevent="hideSettingsTooltip('separate-foreign')"
-                        >
-                          <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                            <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
-                            <path d="M8.5 11h-1V7h1zm0-6h-1V4h1z"></path>
-                          </svg>
-                        </span>
-                      </span>
-                    </div>
-                    <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
-                      <input
-                        id="separate-foreign"
-                        class="cds--checkbox"
-                        type="checkbox"
-                        v-model="separateForeignLanguage"
-                      />
-                      <label class="cds--checkbox-label" for="separate-foreign">
-                        Enabled
-                      </label>
-                    </div>
-                  </div>
-
-                  <div class="cds--layer settings-item">
-                    <div class="settings-item-head">
-                      <label class="cds--label" for="native-language">Native language</label>
-                      <span class="settings-info">
-                        <span
-                          class="cds--tooltip-trigger__wrapper settings-info-trigger"
-                          tabindex="0"
-                          aria-label="Native language setting info"
-                          :aria-describedby="openSettingsTooltip === 'native-language' ? 'settings-tooltip' : undefined"
-                          @mouseenter="showSettingsTooltip('native-language', $event)"
-                          @mouseleave="hideSettingsTooltip('native-language')"
-                          @mousemove="updateSettingsTooltipPosition($event)"
-                          @focus="showSettingsTooltip('native-language', $event)"
-                          @blur="hideSettingsTooltip('native-language')"
-                          @keydown.esc.stop.prevent="hideSettingsTooltip('native-language')"
-                        >
-                          <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                            <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
-                            <path d="M8.5 11h-1V7h1zm0-6h-1V4h1z"></path>
-                          </svg>
-                        </span>
-                      </span>
-                    </div>
-                    <div class="cds--select settings-input">
-                      <div class="cds--select-input-wrapper">
-                        <select id="native-language" class="cds--select-input" v-model="nativeLanguage">
-                          <option v-for="lang in Language.ALL" :key="lang.name" :value="lang.name">{{ lang.name }}</option>
-                        </select>
-                        <svg class="cds--select__arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                          <path d="M8 11L3 6l.7-.7L8 9.6l4.3-4.3.7.7z"/>
-                        </svg>
+                    <template v-else-if="setting.type === 'text'">
+                      <div class="cds--text-input-wrapper settings-input">
+                        <input
+                          :id="setting.id"
+                          class="cds--text-input"
+                          type="text"
+                          :placeholder="setting.placeholder"
+                          :value="settingRefs[setting.id]"
+                          @input="settingRefs[setting.id] = $event.target.value"
+                          @blur="normalizeSettingValue(setting.id)"
+                        />
                       </div>
-                    </div>
-                  </div>
+                    </template>
 
-                  <div class="cds--layer settings-item settings-item--toggle" @click="toggleSettingCheckbox($event, 'resolve-scryfall')">
-                    <div class="settings-item-head">
-                      <span class="cds--label">Resolve collector numbers from Scryfall</span>
-                      <span class="settings-info">
-                        <span
-                          class="cds--tooltip-trigger__wrapper settings-info-trigger"
-                          tabindex="0"
-                          aria-label="Resolve collector numbers from Scryfall setting info"
-                          :aria-describedby="openSettingsTooltip === 'resolve-scryfall' ? 'settings-tooltip' : undefined"
-                          @mouseenter="showSettingsTooltip('resolve-scryfall', $event)"
-                          @mouseleave="hideSettingsTooltip('resolve-scryfall')"
-                          @mousemove="updateSettingsTooltipPosition($event)"
-                          @focus="showSettingsTooltip('resolve-scryfall', $event)"
-                          @blur="hideSettingsTooltip('resolve-scryfall')"
-                          @keydown.esc.stop.prevent="hideSettingsTooltip('resolve-scryfall')"
-                        >
-                          <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                            <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
-                            <path d="M8.5 11h-1V7h1zm0-6h-1V4h1z"></path>
+                    <template v-else-if="setting.type === 'dropdown'">
+                      <div class="cds--select settings-input">
+                        <div class="cds--select-input__wrapper">
+                          <select
+                            :id="setting.id"
+                            class="cds--select-input"
+                            :value="settingRefs[setting.id]"
+                            @change="settingRefs[setting.id] = $event.target.value"
+                          >
+                            <option v-for="opt in setting.options" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                          </select>
+                          <svg class="cds--select__arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                            <path d="M8 11L3 6l.7-.7L8 9.6l4.3-4.3.7.7z"/>
                           </svg>
-                        </span>
-                      </span>
-                    </div>
-                    <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
-                      <input
-                        id="resolve-scryfall"
-                        class="cds--checkbox"
-                        type="checkbox"
-                        v-model="resolveScryfallCardNumbers"
-                      />
-                      <label class="cds--checkbox-label" for="resolve-scryfall">
-                        Enabled
-                      </label>
-                    </div>
+                        </div>
+                      </div>
+                    </template>
                   </div>
                 </div>
               </div>

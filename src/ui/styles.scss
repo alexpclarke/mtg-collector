@@ -175,19 +175,21 @@ body {
   background: var(--cds-layer-hover-01);
 }
 
-.settings-item--toggle {
+.settings-item--toggle,
+.settings-item:has(select) {
   cursor: pointer;
 }
 
-.settings-item--toggle .cds--label {
+.settings-item--toggle .cds--label,
+.settings-item:has(select) .cds--label {
   cursor: pointer;
 }
 
-.settings-item:not(.settings-item--toggle) {
+.settings-item:not(.settings-item--toggle, :has(select)) {
   cursor: text;
 }
 
-.settings-item:not(.settings-item--toggle) .cds--label {
+.settings-item:not(.settings-item--toggle, :has(select)) .cds--label {
   cursor: text;
 }
 

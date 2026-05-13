@@ -11,6 +11,7 @@ export default [
     rules: {
       "array-element-newline": ["error", "consistent"],
       "array-bracket-newline": ["error", "consistent"],
+      "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
     },
   },
   {

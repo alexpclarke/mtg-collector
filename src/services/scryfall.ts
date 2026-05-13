@@ -170,7 +170,7 @@ function buildFailedCacheEntry() {
 // Returns { resolvedByIdentifier: { [id]: cardEntry }, unresolvedIdentifiers: string[] }.
 export async function resolveCardsByIdentifier(identifiers) {
   const uniqueIdentifiers = [
-    ...new Set(identifiers.map((x) => String(x || "").trim()).filter((x) => x && isValidScryfallIdentifier(x))),
+    ...new Set(identifiers.map((identifier) => String(identifier || "").trim()).filter((identifier) => identifier && isValidScryfallIdentifier(identifier))),
   ];
   if (!uniqueIdentifiers.length) return { resolvedByIdentifier: {}, unresolvedIdentifiers: [] };
 
