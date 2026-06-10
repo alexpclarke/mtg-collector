@@ -548,11 +548,11 @@ createApp({
                     v-for="setting in SETTINGS"
                     :key="setting.id"
                     class="cds--layer settings-item"
-                    :class="{ 'settings-item--toggle': setting.isToggle }"
-                    @click="setting.isToggle && toggleSettingCheckbox($event, setting.id)"
+                    :class="{ 'settings-item--toggle': setting instanceof CheckboxSetting }"
+                    @click="setting instanceof CheckboxSetting && toggleSettingCheckbox($event, setting.id)"
                   >
                     <div class="settings-item-head">
-                      <label v-if="!setting.isToggle" class="cds--label" :for="setting.id">{{ setting.label }}</label>
+                      <label v-if="!(setting instanceof CheckboxSetting)" class="cds--label" :for="setting.id">{{ setting.label }}</label>
                       <span v-else class="cds--label">{{ setting.label }}</span>
                       <span class="settings-info">
                         <span
@@ -575,7 +575,7 @@ createApp({
                       </span>
                     </div>
 
-                    <template v-if="setting.type === 'checkbox'">
+                    <template v-if="setting instanceof CheckboxSetting">
                       <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
                         <input :id="setting.id" class="cds--checkbox" type="checkbox"
                           :checked="settingRefs[setting.id]"
@@ -585,7 +585,7 @@ createApp({
                       </div>
                     </template>
 
-                    <template v-else-if="setting.type === 'integer'">
+                    <template v-else-if="setting instanceof IntegerSetting">
                       <div class="cds--number settings-input" data-number>
                         <div class="cds--number__input-wrapper">
                           <input
@@ -625,7 +625,7 @@ createApp({
                       </div>
                     </template>
 
-                    <template v-else-if="setting.type === 'text'">
+                    <template v-else-if="setting instanceof TextSetting">
                       <div class="cds--text-input-wrapper settings-input">
                         <input
                           :id="setting.id"
@@ -639,7 +639,7 @@ createApp({
                       </div>
                     </template>
 
-                    <template v-else-if="setting.type === 'dropdown'">
+                    <template v-else-if="setting instanceof DropdownSetting">
                       <div class="cds--select settings-input">
                         <div class="cds--select-input__wrapper">
                           <select

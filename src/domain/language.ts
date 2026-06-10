@@ -54,10 +54,10 @@ export class Language {
   }
 
   static fromName(name: string): Language | undefined {
-    return Language.ALL.find((language) => language.name === name);
+    return Language.ALL.find((l) => l.name === name);
   }
 
   static getNames(): ReadonlyArray<string> {
-    return Language.ALL.map((language) => language.name);
+    return Language.ALL.map((l) => l.name);
   }
 }

@@ -8,8 +8,6 @@ export class IntegerSetting implements AdvancedSetting<number> {
   readonly min: number;
   readonly max: number | null;
   readonly step: number;
-  readonly isToggle = false;
-  readonly type = "integer";
 
   constructor(
     id: string,

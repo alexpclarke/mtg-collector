@@ -6,8 +6,6 @@ export class TextSetting implements AdvancedSetting<string> {
   readonly tooltipText: string;
   readonly defaultValue: string;
   readonly placeholder: string;
-  readonly isToggle = false;
-  readonly type = "text";
 
   constructor(
     id: string,
