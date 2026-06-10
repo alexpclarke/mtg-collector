@@ -1,41 +1,41 @@
 {
   "name": "mtg-collector",
   "version": "1.0.0",
-  "description": "Build script for static dist output.",
+  "description": "MTG collection box packer — CSV + Scryfall in the browser.",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
-    "sync:styles:dist": "sass --style=compressed --load-path=node_modules --silence-deprecation=if-function src/ui/styles.scss dist/assets/styles.min.css --no-source-map",
-    "bundle:js:dist": "esbuild src/main.ts --bundle --minify --format=esm --target=es2019 --outfile=dist/assets/app.min.js",
-    "optimize:dist": "node scripts/optimize-dist.js",
-    "build": "node scripts/build.js && npm run sync:styles:dist && npm run bundle:js:dist && npm run optimize:dist",
-    "dev": "npm run build && npx serve dist",
-    "watch": "sass --watch --load-path=node_modules --silence-deprecation=if-function src/ui/styles.scss dist/assets/styles.min.css --no-source-map",
-    "serve": "npx serve dist",
+    "sync:data": "node scripts/build.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "lint": "eslint . && stylelint 'src/**/*.scss' --fix",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
-    "@carbon/styles": "1.109.0"
+    "@carbon/styles": "1.109.0",
+    "papaparse": "5.5.3",
+    "vue": "3.5.35"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.1.0",
+    "@types/papaparse": "5.5.2",
     "@typescript-eslint/parser": "^8.62.1",
-    "esbuild": "^0.28.1",
+    "@vitejs/plugin-vue": "5.2.4",
     "eslint": "^10.6.0",
     "globals": "^17.7.0",
-    "html-minifier-terser": "^7.2.0",
     "sass": "^1.101.0",
     "stylelint": "^17.14.0",
     "stylelint-config-standard": "^40.0.0",
     "stylelint-config-standard-scss": "^17.0.0",
     "tsx": "^4.22.4",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vite": "6.4.3"
   }
 }

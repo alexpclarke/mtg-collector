@@ -2,7 +2,7 @@
 // Keeps reactive values, snapshot management, UI event handlers, and
 // the SETTINGS definition out of main.ts.
 
-const { ref, reactive, computed } = Vue;
+import { ref, reactive, computed } from "vue";
 import { getTooltipPosition } from "../layout.ts";
 import { Language } from "../../domain/language.ts";
 import { CheckboxSetting } from "./CheckboxSetting.ts";

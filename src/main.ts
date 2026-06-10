@@ -4,7 +4,9 @@
 // This file intentionally contains no business logic — it only wires together
 // the imported modules and exposes the resulting state/methods to the template.
 // @ts-nocheck
-const { createApp, ref, computed, watch, nextTick } = Vue;
+import { createApp, ref, computed, watch, nextTick } from "vue";
+import Papa from "papaparse";
+import "./ui/styles.scss";
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
 import { loadScryfallSets, fetchScryfallDataTimestamp, resolveCardsByIdentifier, applyResolutionToInventoryRows, buildScryfallCardUrl } from "./services/scryfall.ts";
 import { FOREIGN_BOX_LABEL } from "./domain/constants.ts";
