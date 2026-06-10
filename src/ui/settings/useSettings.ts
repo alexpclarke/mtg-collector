@@ -7,10 +7,7 @@ import { getTooltipPosition } from "../layout.ts";
 import { Language } from "../../domain/language.ts";
 import { CheckboxSetting } from "./CheckboxSetting.ts";
 import { IntegerSetting } from "./IntegerSetting.ts";
-import { TextSetting } from "./TextSetting.ts";
 import { DropdownSetting } from "./DropdownSetting.ts";
-
-const DEFAULT_BINDER_TAG = "binder";
 
 export const SETTINGS = [
   new CheckboxSetting(
@@ -27,12 +24,6 @@ export const SETTINGS = [
     1,
     null,
     1,
-  ),
-  new TextSetting(
-    "binder-tag",
-    "Binder tag",
-    "Rows with this exact tag in the Tags column are counted as binder cards and excluded from box packing.",
-    DEFAULT_BINDER_TAG,
   ),
   new CheckboxSetting(
     "separate-foreign",

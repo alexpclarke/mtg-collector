@@ -11,7 +11,6 @@ test("given prior run output state when resetting outputs then stale boxes and m
     boxes: ref([{ label: "2020", totalCount: 100, sets: [] }]),
     missingEditionList: ref([{ name: "Card" }]),
     missingEditionTotal: ref(7),
-    binderTotal: ref(9),
     totalCards: ref(123),
     selectedBoxIndex: ref(2),
     selectedSetInfo: ref({ code: "abc" }),
@@ -23,7 +22,6 @@ test("given prior run output state when resetting outputs then stale boxes and m
   assert.deepEqual(refs.boxes.value, []);
   assert.deepEqual(refs.missingEditionList.value, []);
   assert.equal(refs.missingEditionTotal.value, 0);
-  assert.equal(refs.binderTotal.value, 0);
   assert.equal(refs.totalCards.value, 0);
   assert.equal(refs.selectedBoxIndex.value, null);
   assert.equal(refs.selectedSetInfo.value, null);
@@ -35,7 +33,6 @@ test("given a run failure when applying failure state then outputs are cleared a
     boxes: ref([{ label: "2020", totalCount: 100, sets: [] }]),
     missingEditionList: ref([{ name: "Card" }]),
     missingEditionTotal: ref(7),
-    binderTotal: ref(9),
     totalCards: ref(123),
     selectedBoxIndex: ref(2),
     selectedSetInfo: ref({ code: "abc" }),
@@ -48,7 +45,6 @@ test("given a run failure when applying failure state then outputs are cleared a
   assert.deepEqual(refs.boxes.value, []);
   assert.deepEqual(refs.missingEditionList.value, []);
   assert.equal(refs.missingEditionTotal.value, 0);
-  assert.equal(refs.binderTotal.value, 0);
   assert.equal(refs.totalCards.value, 0);
   assert.equal(refs.selectedBoxIndex.value, null);
   assert.equal(refs.selectedSetInfo.value, null);

@@ -25,7 +25,6 @@ createApp({
     const boxes = ref([]);
     const missingEditionList = ref([]);
     const missingEditionTotal = ref(0);
-    const binderTotal = ref(0);
     const totalCards = ref(0);
     const hoveredSegment = ref(null);
     const hoverPosition = ref({ x: 0, y: 0 });
@@ -175,7 +174,6 @@ createApp({
         boxes,
         missingEditionList,
         missingEditionTotal,
-        binderTotal,
         totalCards,
         selectedBoxIndex,
         selectedSetInfo,
@@ -197,7 +195,7 @@ createApp({
         ]);
 
         const mappings = buildSetMappings(scryfallSets);
-        const firstPass = parseRows(rows, mappings, settingRefs["binder-tag"], settingRefs["separate-foreign"], settingRefs["native-language"]);
+        const firstPass = parseRows(rows, mappings, settingRefs["separate-foreign"], settingRefs["native-language"]);
 
         let rowsToParse = rows;
         let unresolvedLookupIds = [];
@@ -215,7 +213,7 @@ createApp({
           }
         }
 
-        const parsed = parseRows(rowsToParse, mappings, settingRefs["binder-tag"], settingRefs["separate-foreign"], settingRefs["native-language"]);
+        const parsed = parseRows(rowsToParse, mappings, settingRefs["separate-foreign"], settingRefs["native-language"]);
         const packed = packSetsIntoBoxes(parsed.packable, Number(settingRefs["box-capacity"]), {
           firstBoxStartYear: settingRefs["start-at-1993"] ? 1993 : null,
           separateForeignLanguage: settingRefs["separate-foreign"],
@@ -233,7 +231,6 @@ createApp({
         selectedBoxIndex.value = null;
         activeFile.value = file.value;
         settings.snapshotSettings();
-        binderTotal.value = parsed.binderTotal;
         missingEditionList.value = parsed.missingEditionList;
         missingEditionTotal.value = parsed.missingEditionTotal;
         totalCards.value = packed.reduce((acc, b) => acc + b.totalCount, 0);
@@ -252,7 +249,6 @@ createApp({
             boxes,
             missingEditionList,
             missingEditionTotal,
-            binderTotal,
             totalCards,
             selectedBoxIndex,
             selectedSetInfo,
@@ -276,7 +272,6 @@ createApp({
       missingEditionList,
       missingEditionTotal,
       resolutionSummary,
-      binderTotal,
       totalCards,
       boxCount,
       canRun,
@@ -545,10 +540,6 @@ createApp({
           <div class="cds--tile">
             <div class="metric-title cds--label">Cards in boxes</div>
             <div class="metric-value cds--productive-heading-03">{{ totalCards }}</div>
-          </div>
-          <div class="cds--tile">
-            <div class="metric-title cds--label">Cards in binder</div>
-            <div class="metric-value cds--productive-heading-03">{{ binderTotal }}</div>
           </div>
         </div>
       </section>
