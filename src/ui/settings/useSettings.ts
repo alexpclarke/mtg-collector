@@ -1,0 +1,178 @@
+// Composable that owns all advanced-settings state and behaviour.
+// Keeps reactive values, snapshot management, UI event handlers, and
+// the SETTINGS definition out of main.ts.
+
+const { ref, reactive, computed } = Vue;
+import { getTooltipPosition } from "../layout.ts";
+import { Language } from "../../domain/language.ts";
+import { CheckboxSetting } from "./CheckboxSetting.ts";
+import { IntegerSetting } from "./IntegerSetting.ts";
+import { TextSetting } from "./TextSetting.ts";
+import { DropdownSetting } from "./DropdownSetting.ts";
+
+const DEFAULT_BINDER_TAG = "binder";
+
+export const SETTINGS = [
+  new CheckboxSetting(
+    "start-at-1993",
+    "Start at 1993",
+    "Checked: first box starts at 1993. Unchecked: starts at your oldest year.",
+    true,
+  ),
+  new IntegerSetting(
+    "box-capacity",
+    "Box capacity",
+    "Maximum cards allowed in each packed box. Default is 1100.",
+    1100,
+    1,
+    null,
+    1,
+  ),
+  new TextSetting(
+    "binder-tag",
+    "Binder tag",
+    "Rows with this exact tag in the Tags column are counted as binder cards and excluded from box packing.",
+    DEFAULT_BINDER_TAG,
+  ),
+  new CheckboxSetting(
+    "separate-foreign",
+    "Separate foreign language cards",
+    "When enabled, non-native-language cards are grouped together and packed into dedicated Foreign boxes at the end. When disabled, they are packed in with their set by release year.",
+    true,
+  ),
+  new DropdownSetting(
+    "native-language",
+    "Native language",
+    "Cards in this language are treated as your native collection. Cards in any other language are routed to the Foreign box when separation is enabled.",
+    Language.English.name,
+    Language.getNames().map((n) => ({ value: n, label: n })),
+  ),
+  new CheckboxSetting(
+    "resolve-scryfall",
+    "Resolve collector numbers from Scryfall",
+    "When enabled, collector numbers are resolved from Scryfall for accuracy. When disabled, the input values are used as-is.",
+    true,
+  ),
+];
+
+export const SETTINGS_BY_ID = Object.fromEntries(SETTINGS.map((s) => [s.id, s]));
+
+export function useSettings() {
+  const settingRefs = reactive(Object.fromEntries(SETTINGS.map((s) => [s.id, s.defaultValue])));
+  const activeSettings = ref(Object.fromEntries(SETTINGS.map((s) => [s.id, s.defaultValue])));
+  const settingsOpen = ref(false);
+  const openSettingsTooltip = ref("");
+  const settingsTooltipPosition = ref({ x: 0, y: 0 });
+
+  // Resolves the tooltip text for whichever settings entry is currently open.
+  const activeTooltipText = computed(
+    () => SETTINGS_BY_ID[openSettingsTooltip.value]?.tooltipText ?? "",
+  );
+
+  // Copies current live values into the snapshot, called after a successful run.
+  function snapshotSettings() {
+    activeSettings.value = Object.fromEntries(SETTINGS.map((s) => [s.id, settingRefs[s.id]]));
+  }
+
+  // Delegates blur normalisation to the setting's own normalize() method.
+  function normalizeSettingValue(settingId) {
+    const setting = SETTINGS_BY_ID[settingId];
+    if (setting?.normalize) {
+      settingRefs[settingId] = setting.normalize(settingRefs[settingId]);
+    }
+  }
+
+  // Increments or decrements the box capacity by delta (used by +/- buttons).
+  function adjustBoxCapacity(delta) {
+    settingRefs["box-capacity"] = (Number(settingRefs["box-capacity"]) || 0) + delta;
+    normalizeSettingValue("box-capacity");
+  }
+
+  // Records which settings tooltip is open and positions it near the trigger.
+  function showSettingsTooltip(key, event) {
+    openSettingsTooltip.value = key;
+    updateSettingsTooltipPosition(event);
+  }
+
+  // Clears the open tooltip if it matches key (prevents closing unrelated ones).
+  function hideSettingsTooltip(key) {
+    if (openSettingsTooltip.value === key) {
+      openSettingsTooltip.value = "";
+    }
+  }
+
+  function updateSettingsTooltipPosition(event) {
+    if (event?.clientX != null && event?.clientY != null) {
+      settingsTooltipPosition.value = getTooltipPosition(event.clientX, event.clientY, {
+        width: 288,
+        minWidth: 224,
+        height: 120,
+      });
+      return;
+    }
+    const rect = event?.currentTarget?.getBoundingClientRect?.();
+    if (rect) {
+      settingsTooltipPosition.value = getTooltipPosition(rect.left + rect.width / 2, rect.top + rect.height / 2, {
+        width: 288,
+        minWidth: 224,
+        height: 120,
+      });
+    }
+  }
+
+  // Allows clicking anywhere in a settings card row to toggle its checkbox,
+  // while still letting clicks on interactive children behave normally.
+  function toggleSettingCheckbox(event, checkboxId) {
+    const target = event.target;
+    if (target instanceof Element && target.closest('input, label, button, a, [role="button"]')) {
+      return;
+    }
+    const checkbox = document.getElementById(checkboxId);
+    if (checkbox instanceof HTMLInputElement && checkbox.type === "checkbox") {
+      checkbox.click();
+    }
+  }
+
+  // Focuses the text/number input inside a settings card when the card area is clicked.
+  function focusSettingInput(event) {
+    const target = event.target;
+    if (target instanceof Element && target.closest('input, label, button, a, select, textarea, [role="button"]')) {
+      return;
+    }
+    if (!(target instanceof Element)) return;
+    const settingCard = target.closest(".settings-item");
+    if (!settingCard) return;
+    const input = settingCard.querySelector(".cds--text-input, .cds--number__input, .cds--select-input");
+    if (input instanceof HTMLSelectElement) {
+      input.click();
+    } else if (input instanceof HTMLElement) {
+      input.focus();
+    }
+  }
+
+  return {
+    // State
+    SETTINGS,
+    SETTINGS_BY_ID,
+    settingRefs,
+    activeSettings,
+    settingsOpen,
+    openSettingsTooltip,
+    settingsTooltipPosition,
+    // Setting class constructors (needed for template instanceof checks)
+    CheckboxSetting,
+    IntegerSetting,
+    TextSetting,
+    DropdownSetting,
+    activeTooltipText,
+    // Methods
+    snapshotSettings,
+    normalizeSettingValue,
+    adjustBoxCapacity,
+    showSettingsTooltip,
+    hideSettingsTooltip,
+    updateSettingsTooltipPosition,
+    toggleSettingCheckbox,
+    focusSettingInput,
+  };
+}

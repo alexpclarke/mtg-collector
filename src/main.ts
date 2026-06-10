@@ -4,67 +4,17 @@
 // This file intentionally contains no business logic — it only wires together
 // the imported modules and exposes the resulting state/methods to the template.
 // @ts-nocheck
-const { createApp, ref, computed, watch, nextTick, reactive } = Vue;
+const { createApp, ref, computed, watch, nextTick } = Vue;
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
 import { loadScryfallSets, fetchScryfallDataTimestamp, resolveCardsByIdentifier, applyResolutionToInventoryRows, buildScryfallCardUrl } from "./services/scryfall.ts";
 import { FOREIGN_BOX_LABEL } from "./domain/constants.ts";
-import { Language } from "./domain/language.ts";
 import "./ui/theme.ts";
-
-const DEFAULT_BOX_CAPACITY = 1100;
-const DEFAULT_START_YEAR = 1993;
-const DEFAULT_BINDER_TAG = "binder";
 import { buildSetMappings } from "./domain/sets.ts";
 import { languageAbbreviation, formatSetCode, parseRows, packSetsIntoBoxes, isForeignBoxLabel, formatForeignCodes, foreignCardsBySet } from "./domain/parsing.ts";
 import { colorForIndex } from "./ui/colors.ts";
-import { getTooltipPosition, cardsForBox, boxModalColumns, cardRowKey } from "./ui/layout.ts";
+import { cardsForBox, boxModalColumns, cardRowKey } from "./ui/layout.ts";
 import { openExternalLink, trapModalFocus } from "./ui/dom.ts";
-import { CheckboxSetting, IntegerSetting, TextSetting, DropdownSetting } from "./ui/settings.ts";
-
-const SETTINGS = [
-  new CheckboxSetting(
-    "start-at-1993",
-    "Start at 1993",
-    "Checked: first box starts at 1993. Unchecked: starts at your oldest year.",
-    true,
-  ),
-  new IntegerSetting(
-    "box-capacity",
-    "Box capacity",
-    "Maximum cards allowed in each packed box. Default is 1100.",
-    DEFAULT_BOX_CAPACITY,
-    1,
-    null,
-    1,
-  ),
-  new TextSetting(
-    "binder-tag",
-    "Binder tag",
-    "Rows with this exact tag in the Tags column are counted as binder cards and excluded from box packing.",
-    DEFAULT_BINDER_TAG,
-  ),
-  new CheckboxSetting(
-    "separate-foreign",
-    "Separate foreign language cards",
-    "When enabled, non-native-language cards are grouped together and packed into dedicated Foreign boxes at the end. When disabled, they are packed in with their set by release year.",
-    true,
-  ),
-  new DropdownSetting(
-    "native-language",
-    "Native language",
-    "Cards in this language are treated as your native collection. Cards in any other language are routed to the Foreign box when separation is enabled.",
-    Language.English.name,
-    Language.getNames().map((n) => ({ value: n, label: n })),
-  ),
-  new CheckboxSetting(
-    "resolve-scryfall",
-    "Resolve collector numbers from Scryfall",
-    "When enabled, collector numbers are resolved from Scryfall for accuracy. When disabled, the input values are used as-is.",
-    true,
-  ),
-];
-
-const SETTINGS_BY_ID = Object.fromEntries(SETTINGS.map((s) => [s.id, s]));
+import { useSettings } from "./ui/settings/useSettings.ts";
 
 createApp({
   setup() {
@@ -93,15 +43,9 @@ createApp({
           + " " + date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
       }
     });
-    const settingsOpen = ref(false);
-    const openSettingsTooltip = ref("");
-    const settingsTooltipPosition = ref({ x: 0, y: 0 });
-    const settingRefs = reactive(Object.fromEntries(SETTINGS.map((s) => [s.id, s.defaultValue])));
-    // ── Active settings (snapshot) ────────────────────────────────────────────
-    // Frozen copies of the file and settings at the moment run() last succeeded.
-    // Used to detect whether anything has changed since the last run.
+    const settings = useSettings();
+    const { settingRefs, activeSettings, SETTINGS, SETTINGS_BY_ID: s_by_id } = settings;
     const activeFile = ref(null);
-    const activeSettings = ref(Object.fromEntries(SETTINGS.map((s) => [s.id, s.defaultValue])));
 
     // Returns a cheap identity string for a File object using its stable
     // metadata. Two File objects pointing at the same on-disk file produce the
@@ -123,89 +67,12 @@ createApp({
     // what already produced the displayed output.
     const canRun = computed(() => {
       const capacity = Number(settingRefs["box-capacity"]);
-      if (!file.value || !Number.isFinite(capacity) || capacity < SETTINGS_BY_ID["box-capacity"].min) return false;
+      if (!file.value || !Number.isFinite(capacity) || capacity < s_by_id["box-capacity"].min) return false;
       if (!boxes.value.length) return true;
       const fileChanged = fileFingerprint(file.value) !== fileFingerprint(activeFile.value);
       const settingsChanged = SETTINGS.some((s) => settingRefs[s.id] !== activeSettings.value[s.id]);
       return fileChanged || settingsChanged;
     });
-
-    // ── Settings helpers ──────────────────────────────────────────────────────
-
-    // Increments or decrements the box capacity by delta (used by +/- buttons).
-    function adjustBoxCapacity(delta) {
-      settingRefs["box-capacity"] = (Number(settingRefs["box-capacity"]) || 0) + delta;
-      normalizeSettingValue("box-capacity");
-    }
-
-    // Delegates blur normalisation to the setting's own normalize() method.
-    function normalizeSettingValue(settingId) {
-      const setting = SETTINGS_BY_ID[settingId];
-      if (setting?.normalize) {
-        settingRefs[settingId] = setting.normalize(settingRefs[settingId]);
-      }
-    }
-
-    // Records which settings tooltip is open and positions it near the trigger.
-    function showSettingsTooltip(key, event) {
-      openSettingsTooltip.value = key;
-      updateSettingsTooltipPosition(event);
-    }
-
-    // Clears the open tooltip if it matches key (prevents closing unrelated ones).
-    function hideSettingsTooltip(key) {
-      if (openSettingsTooltip.value === key) {
-        openSettingsTooltip.value = "";
-      }
-    }
-
-    // Returns the help text for a given settings field key.
-    // Kept in JS rather than the template to keep the template readable.
-    function settingsTooltipText(key) {
-      return SETTINGS.find((s) => s.id === key)?.tooltipText ?? "";
-    }
-
-    // Allows clicking anywhere in a settings card row to toggle its checkbox,
-    // while still letting clicks on interactive children (inputs, labels,
-    // buttons) behave normally.
-    function toggleSettingCheckbox(event, checkboxId) {
-      const target = event.target;
-      if (
-        target instanceof Element &&
-        target.closest('input, label, button, a, [role="button"]')
-      ) {
-        return;
-      }
-
-      const checkbox = document.getElementById(checkboxId);
-      if (checkbox instanceof HTMLInputElement && checkbox.type === "checkbox") {
-        checkbox.click();
-      }
-    }
-
-    // Focuses the text/number input inside a settings card when the card area
-    // is clicked. Skips the focus if the click was on a more specific interactive
-    // element, preventing double-focus on checkboxes and buttons.
-    function focusSettingInput(event) {
-      const target = event.target;
-      if (
-        target instanceof Element &&
-        target.closest('input, label, button, a, select, textarea, [role="button"]')
-      ) {
-        return;
-      }
-
-      if (!(target instanceof Element)) return;
-      const settingCard = target.closest('.settings-item');
-      if (!settingCard) return;
-
-      const input = settingCard.querySelector('.cds--text-input, .cds--number__input, .cds--select-input');
-      if (input instanceof HTMLSelectElement) {
-        input.click();
-      } else if (input instanceof HTMLElement) {
-        input.focus();
-      }
-    }
 
     // ── File input handlers ───────────────────────────────────────────────────
 
@@ -230,27 +97,6 @@ createApp({
     }
 
     // ── Segment hover handlers ────────────────────────────────────────────────
-
-    // Positions the settings tooltip using a mouse or bounding-rect position.
-    function updateSettingsTooltipPosition(event) {
-      if (event?.clientX != null && event?.clientY != null) {
-        settingsTooltipPosition.value = getTooltipPosition(event.clientX, event.clientY, {
-          width: 288,
-          minWidth: 224,
-          height: 120,
-        });
-        return;
-      }
-
-      const rect = event?.currentTarget?.getBoundingClientRect?.();
-      if (rect) {
-        settingsTooltipPosition.value = getTooltipPosition(rect.left + rect.width / 2, rect.top + rect.height / 2, {
-          width: 288,
-          minWidth: 224,
-          height: 120,
-        });
-      }
-    }
 
     // Records the hovered segment and updates the floating set-info tooltip position.
     function onSegmentEnter(boxIndex, segmentIndex, setInfo, event) {
@@ -371,7 +217,7 @@ createApp({
 
         const parsed = parseRows(rowsToParse, mappings, settingRefs["binder-tag"], settingRefs["separate-foreign"], settingRefs["native-language"]);
         const packed = packSetsIntoBoxes(parsed.packable, Number(settingRefs["box-capacity"]), {
-          firstBoxStartYear: settingRefs["start-at-1993"] ? DEFAULT_START_YEAR : null,
+          firstBoxStartYear: settingRefs["start-at-1993"] ? 1993 : null,
           separateForeignLanguage: settingRefs["separate-foreign"],
           nativeLanguage: settingRefs["native-language"],
           mappings,
@@ -386,7 +232,7 @@ createApp({
         boxes.value = packed;
         selectedBoxIndex.value = null;
         activeFile.value = file.value;
-        activeSettings.value = Object.fromEntries(SETTINGS.map((s) => [s.id, settingRefs[s.id]]));
+        settings.snapshotSettings();
         binderTotal.value = parsed.binderTotal;
         missingEditionList.value = parsed.missingEditionList;
         missingEditionTotal.value = parsed.missingEditionTotal;
@@ -421,7 +267,6 @@ createApp({
     }
 
     return {
-      activeSettings,
       activeFile,
       file,
       loading,
@@ -439,22 +284,7 @@ createApp({
       onFileDragOver,
       onFileDragLeave,
       onFileDrop,
-      adjustBoxCapacity,
-      openSettingsTooltip,
-      settingsTooltipPosition,
-      showSettingsTooltip,
-      hideSettingsTooltip,
-      SETTINGS,
-      settingRefs,
-      CheckboxSetting,
-      IntegerSetting,
-      TextSetting,
-      DropdownSetting,
-      settingsTooltipText,
-      normalizeSettingValue,
-      updateSettingsTooltipPosition,
-      toggleSettingCheckbox,
-      focusSettingInput,
+      ...settings,
       onSegmentEnter,
       onSegmentMove,
       onSegmentLeave,
@@ -466,7 +296,6 @@ createApp({
       openExternalLink,
       selectedBoxIndex,
       selectedSetInfo,
-      settingsOpen,
       reviewOpen,
       boxModalEl,
       setModalEl,
@@ -783,7 +612,7 @@ createApp({
         :style="{ left: settingsTooltipPosition.x + 'px', top: settingsTooltipPosition.y + 'px' }"
         role="tooltip"
       >
-        {{ settingsTooltipText(openSettingsTooltip) }}
+        {{ activeTooltipText }}
       </div>
 
       <div
