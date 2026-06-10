@@ -7,6 +7,7 @@ import { getTooltipPosition } from "../layout.ts";
 import { Language } from "../../domain/language.ts";
 import { CheckboxSetting } from "./CheckboxSetting.ts";
 import { IntegerSetting } from "./IntegerSetting.ts";
+import { TextSetting } from "./TextSetting.ts";
 import { DropdownSetting } from "./DropdownSetting.ts";
 
 export const SETTINGS = [
