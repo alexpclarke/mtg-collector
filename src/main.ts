@@ -69,7 +69,6 @@ const SETTINGS_BY_ID = Object.fromEntries(SETTINGS.map((s) => [s.id, s]));
 createApp({
   setup() {
     const file = ref(null);
-    const boxCapacity = ref(SETTINGS_BY_ID["box-capacity"].defaultValue);
     const loading = ref(false);
     const error = ref("");
     const isFileDragOver = ref(false);
@@ -97,19 +96,7 @@ createApp({
     const settingsOpen = ref(false);
     const openSettingsTooltip = ref("");
     const settingsTooltipPosition = ref({ x: 0, y: 0 });
-    const startAt1993 = ref(SETTINGS_BY_ID["start-at-1993"].defaultValue);
-    const binderTag = ref(SETTINGS_BY_ID["binder-tag"].defaultValue);
-    const resolveScryfallCardNumbers = ref(SETTINGS_BY_ID["resolve-scryfall"].defaultValue);
-    const separateForeignLanguage = ref(SETTINGS_BY_ID["separate-foreign"].defaultValue);
-    const nativeLanguage = ref(SETTINGS_BY_ID["native-language"].defaultValue);
-    const settingRefs = reactive({
-      "start-at-1993": startAt1993,
-      "box-capacity": boxCapacity,
-      "binder-tag": binderTag,
-      "separate-foreign": separateForeignLanguage,
-      "native-language": nativeLanguage,
-      "resolve-scryfall": resolveScryfallCardNumbers,
-    });
+    const settingRefs = reactive(Object.fromEntries(SETTINGS.map((s) => [s.id, s.defaultValue])));
     // ── Active settings (snapshot) ────────────────────────────────────────────
     // Frozen copies of the file and settings at the moment run() last succeeded.
     // Used to detect whether anything has changed since the last run.
@@ -135,8 +122,8 @@ createApp({
     // the box capacity is valid, and the current file+settings differ from
     // what already produced the displayed output.
     const canRun = computed(() => {
-      const capacity = Number(boxCapacity.value);
-      if (!file.value || !Number.isFinite(capacity) || capacity <= 0) return false;
+      const capacity = Number(settingRefs["box-capacity"]);
+      if (!file.value || !Number.isFinite(capacity) || capacity < SETTINGS_BY_ID["box-capacity"].min) return false;
       if (!boxes.value.length) return true;
       const fileChanged = fileFingerprint(file.value) !== fileFingerprint(activeFile.value);
       const settingsChanged = SETTINGS.some((s) => settingRefs[s.id] !== activeSettings.value[s.id]);
@@ -147,8 +134,8 @@ createApp({
 
     // Increments or decrements the box capacity by delta (used by +/- buttons).
     function adjustBoxCapacity(delta) {
-      const setting = SETTINGS_BY_ID["box-capacity"];
-      boxCapacity.value = setting.normalize((Number(boxCapacity.value) || 0) + delta);
+      settingRefs["box-capacity"] = (Number(settingRefs["box-capacity"]) || 0) + delta;
+      normalizeSettingValue("box-capacity");
     }
 
     // Delegates blur normalisation to the setting's own normalize() method.
@@ -333,7 +320,7 @@ createApp({
         error.value = "Choose a CSV file first.";
         return;
       }
-      if (!boxCapacity.value || boxCapacity.value <= 0) {
+      if (!settingRefs["box-capacity"] || settingRefs["box-capacity"] <= 0) {
         error.value = "Box capacity must be a positive number.";
         return;
       }
@@ -364,7 +351,7 @@ createApp({
         ]);
 
         const mappings = buildSetMappings(scryfallSets);
-        const firstPass = parseRows(rows, mappings, binderTag.value, separateForeignLanguage.value, nativeLanguage.value);
+        const firstPass = parseRows(rows, mappings, settingRefs["binder-tag"], settingRefs["separate-foreign"], settingRefs["native-language"]);
 
         let rowsToParse = rows;
         let unresolvedLookupIds = [];
@@ -374,7 +361,7 @@ createApp({
           .map((row) => String(row["Scryfall ID"] || "").trim())
           .filter(Boolean);
 
-        if (resolveScryfallCardNumbers.value && allScryfallIds.length) {
+        if (settingRefs["resolve-scryfall"] && allScryfallIds.length) {
           const { resolvedByIdentifier, unresolvedIdentifiers } = await resolveCardsByIdentifier(allScryfallIds);
           unresolvedLookupIds = unresolvedIdentifiers;
           if (Object.keys(resolvedByIdentifier).length) {
@@ -382,11 +369,11 @@ createApp({
           }
         }
 
-        const parsed = parseRows(rowsToParse, mappings, binderTag.value, separateForeignLanguage.value, nativeLanguage.value);
-        const packed = packSetsIntoBoxes(parsed.packable, Number(boxCapacity.value), {
-          firstBoxStartYear: startAt1993.value ? DEFAULT_START_YEAR : null,
-          separateForeignLanguage: separateForeignLanguage.value,
-          nativeLanguage: nativeLanguage.value,
+        const parsed = parseRows(rowsToParse, mappings, settingRefs["binder-tag"], settingRefs["separate-foreign"], settingRefs["native-language"]);
+        const packed = packSetsIntoBoxes(parsed.packable, Number(settingRefs["box-capacity"]), {
+          firstBoxStartYear: settingRefs["start-at-1993"] ? DEFAULT_START_YEAR : null,
+          separateForeignLanguage: settingRefs["separate-foreign"],
+          nativeLanguage: settingRefs["native-language"],
           mappings,
         });
 
@@ -437,7 +424,6 @@ createApp({
       activeSettings,
       activeFile,
       file,
-      boxCapacity,
       loading,
       error,
       isFileDragOver,
@@ -460,6 +446,10 @@ createApp({
       hideSettingsTooltip,
       SETTINGS,
       settingRefs,
+      CheckboxSetting,
+      IntegerSetting,
+      TextSetting,
+      DropdownSetting,
       settingsTooltipText,
       normalizeSettingValue,
       updateSettingsTooltipPosition,
@@ -477,11 +467,6 @@ createApp({
       selectedBoxIndex,
       selectedSetInfo,
       settingsOpen,
-      startAt1993,
-      binderTag,
-      separateForeignLanguage,
-      nativeLanguage,
-      resolveScryfallCardNumbers,
       reviewOpen,
       boxModalEl,
       setModalEl,
