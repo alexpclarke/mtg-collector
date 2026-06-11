@@ -5,13 +5,13 @@
 import { ref, reactive, computed } from "vue";
 import { getTooltipPosition } from "../layout.ts";
 import { Language } from "../../domain/language.ts";
-import { CheckboxSetting } from "./CheckboxSetting.ts";
-import { StartAt1993Setting } from "./StartAt1993Setting.ts";
-import { SeparateForeignSetting } from "./SeparateForeignSetting.ts";
-import { ResolveScryfallSetting } from "./ResolveScryfallSetting.ts";
-import { IntegerSetting } from "./IntegerSetting.ts";
-import { TextSetting } from "./TextSetting.ts";
-import { DropdownSetting } from "./DropdownSetting.ts";
+import { CheckboxSetting } from "../../domain/settings/CheckboxSetting.ts";
+import { StartAt1993Setting } from "../../domain/settings/StartAt1993Setting.ts";
+import { SeparateForeignSetting } from "../../domain/settings/SeparateForeignSetting.ts";
+import { ResolveScryfallSetting } from "../../domain/settings/ResolveScryfallSetting.ts";
+import { IntegerSetting } from "../../domain/settings/IntegerSetting.ts";
+import { TextSetting } from "../../domain/settings/TextSetting.ts";
+import { DropdownSetting } from "../../domain/settings/DropdownSetting.ts";
 
 export const SETTINGS = [
   new StartAt1993Setting(),

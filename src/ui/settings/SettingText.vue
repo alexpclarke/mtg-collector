@@ -1,36 +1,24 @@
 <script setup lang="ts">
-import { CheckboxSetting } from "../../domain/settings/CheckboxSetting.ts";
+import { TextSetting } from "../../domain/settings/TextSetting.ts";
 
-const props = defineProps<{
-  setting: CheckboxSetting;
-  modelValue: boolean;
+defineProps<{
+  setting: TextSetting;
+  modelValue: string;
   isTooltipOpen: boolean;
 }>();
 
 const emit = defineEmits<{
-  "update:modelValue": [value: boolean];
+  "update:modelValue": [value: string];
   "show-tooltip": [id: string, event: MouseEvent | FocusEvent];
   "hide-tooltip": [id: string];
   "move-tooltip": [event: MouseEvent];
 }>();
-
-function handleCardClick(event: MouseEvent) {
-  const target = event.target as Element;
-  if (target.closest('input, label, button, a, [role="button"]')) return;
-  const checkbox = document.getElementById(props.setting.id);
-  if (checkbox instanceof HTMLInputElement && checkbox.type === "checkbox") {
-    checkbox.click();
-  }
-}
 </script>
 
 <template>
-  <div
-    class="cds--layer settings-item settings-item--toggle"
-    @click="handleCardClick"
-  >
+  <div class="cds--layer settings-item">
     <div class="settings-item-head">
-      <span class="cds--label">{{ setting.label }}</span>
+      <label class="cds--label" :for="setting.id">{{ setting.label }}</label>
       <span class="settings-info">
         <span
           class="cds--tooltip-trigger__wrapper settings-info-trigger"
@@ -52,15 +40,16 @@ function handleCardClick(event: MouseEvent) {
       </span>
     </div>
 
-    <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
+    <div class="cds--text-input-wrapper settings-input">
       <input
         :id="setting.id"
-        class="cds--checkbox"
-        type="checkbox"
-        :checked="modelValue"
-        @change="emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
+        class="cds--text-input"
+        type="text"
+        :placeholder="setting.placeholder"
+        :value="modelValue"
+        @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+        @blur="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
       />
-      <label :for="setting.id" class="cds--checkbox-label">Enabled</label>
     </div>
   </div>
 </template>

@@ -1,36 +1,24 @@
-<script setup lang="ts">
-import { CheckboxSetting } from "../../domain/settings/CheckboxSetting.ts";
+<script setup lang="ts" generic="T extends string">
+import { DropdownSetting } from "../../domain/settings/DropdownSetting.ts";
 
-const props = defineProps<{
-  setting: CheckboxSetting;
-  modelValue: boolean;
+defineProps<{
+  setting: DropdownSetting<T>;
+  modelValue: T;
   isTooltipOpen: boolean;
 }>();
 
 const emit = defineEmits<{
-  "update:modelValue": [value: boolean];
+  "update:modelValue": [value: T];
   "show-tooltip": [id: string, event: MouseEvent | FocusEvent];
   "hide-tooltip": [id: string];
   "move-tooltip": [event: MouseEvent];
 }>();
-
-function handleCardClick(event: MouseEvent) {
-  const target = event.target as Element;
-  if (target.closest('input, label, button, a, [role="button"]')) return;
-  const checkbox = document.getElementById(props.setting.id);
-  if (checkbox instanceof HTMLInputElement && checkbox.type === "checkbox") {
-    checkbox.click();
-  }
-}
 </script>
 
 <template>
-  <div
-    class="cds--layer settings-item settings-item--toggle"
-    @click="handleCardClick"
-  >
+  <div class="cds--layer settings-item">
     <div class="settings-item-head">
-      <span class="cds--label">{{ setting.label }}</span>
+      <label class="cds--label" :for="setting.id">{{ setting.label }}</label>
       <span class="settings-info">
         <span
           class="cds--tooltip-trigger__wrapper settings-info-trigger"
@@ -52,15 +40,20 @@ function handleCardClick(event: MouseEvent) {
       </span>
     </div>
 
-    <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
-      <input
-        :id="setting.id"
-        class="cds--checkbox"
-        type="checkbox"
-        :checked="modelValue"
-        @change="emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
-      />
-      <label :for="setting.id" class="cds--checkbox-label">Enabled</label>
+    <div class="cds--select settings-input">
+      <div class="cds--select-input__wrapper">
+        <select
+          :id="setting.id"
+          class="cds--select-input"
+          :value="modelValue"
+          @change="emit('update:modelValue', ($event.target as HTMLSelectElement).value as T)"
+        >
+          <option v-for="opt in setting.options" :key="String(opt.value)" :value="opt.value">{{ opt.label }}</option>
+        </select>
+        <svg class="cds--select__arrow" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M8 11L3 6l.7-.7L8 9.6l4.3-4.3.7.7z"/>
+        </svg>
+      </div>
     </div>
   </div>
 </template>
