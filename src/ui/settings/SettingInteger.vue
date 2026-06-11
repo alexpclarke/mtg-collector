@@ -49,7 +49,7 @@ const emit = defineEmits<{
           class="cds--number__input"
           type="number"
           :min="setting.min"
-          :step="setting.step"
+          step="1"
           :value="modelValue"
           @input="emit('update:modelValue', Number(($event.target as HTMLInputElement).value))"
           @blur="emit('normalize', setting.id)"
@@ -59,7 +59,7 @@ const emit = defineEmits<{
             type="button"
             class="cds--number__control-btn down-icon"
             :aria-label="'Decrease ' + setting.label.toLowerCase()"
-            @click="emit('adjust', -setting.step)"
+            @click="emit('adjust', -1)"
           >
             <svg class="down-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
               <path d="M4 8h8v1H4z"></path>
@@ -69,7 +69,7 @@ const emit = defineEmits<{
             type="button"
             class="cds--number__control-btn up-icon"
             :aria-label="'Increase ' + setting.label.toLowerCase()"
-            @click="emit('adjust', setting.step)"
+            @click="emit('adjust', 1)"
           >
             <svg class="up-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
               <path d="M8 4h1v4h4v1H9v4H8V9H4V8h4z"></path>

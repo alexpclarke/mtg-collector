@@ -7,7 +7,6 @@ export class IntegerSetting implements AdvancedSetting<number> {
   readonly defaultValue: number;
   readonly min: number;
   readonly max: number | null;
-  readonly step: number;
 
   constructor(
     id: string,
@@ -16,7 +15,6 @@ export class IntegerSetting implements AdvancedSetting<number> {
     defaultValue: number,
     min = 1,
     max: number | null = null,
-    step = 1,
   ) {
     this.id = id;
     this.label = label;
@@ -24,7 +22,6 @@ export class IntegerSetting implements AdvancedSetting<number> {
     this.defaultValue = defaultValue;
     this.min = min;
     this.max = max;
-    this.step = step;
   }
 
   normalize(rawValue: number): number {
