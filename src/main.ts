@@ -5,6 +5,7 @@
 // the imported modules and exposes the resulting state/methods to the template.
 // @ts-nocheck
 import { createApp, ref, computed, watch, nextTick } from "vue";
+import CarbonVue from "@carbon/vue";
 import Papa from "papaparse";
 import "./ui/styles.scss";
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
@@ -703,4 +704,4 @@ createApp({
       </div>
     </main>
   `,
-}).mount("#app");
+}).use(CarbonVue).mount("#app");

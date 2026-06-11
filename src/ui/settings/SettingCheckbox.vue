@@ -52,15 +52,13 @@ function handleCardClick(event: MouseEvent) {
       </span>
     </div>
 
-    <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
-      <input
-        :id="setting.id"
-        class="cds--checkbox"
-        type="checkbox"
-        :checked="modelValue"
-        @change="emit('update:modelValue', ($event.target as HTMLInputElement).checked)"
-      />
-      <label :for="setting.id" class="cds--checkbox-label">Enabled</label>
-    </div>
+    <cv-checkbox
+      :id="setting.id"
+      :value="setting.id"
+      class="settings-input settings-toggle-row"
+      label="Enabled"
+      :model-value="modelValue"
+      @update:model-value="emit('update:modelValue', $event as boolean)"
+    />
   </div>
 </template>
