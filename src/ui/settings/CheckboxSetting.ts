@@ -1,6 +1,8 @@
 import type { AdvancedSetting } from "./AdvancedSetting.ts";
 
-export class CheckboxSetting implements AdvancedSetting<boolean> {
+// Abstract class rather than interface so that `instanceof CheckboxSetting`
+// works at runtime in the Vue template for type-based rendering.
+export abstract class CheckboxSetting implements AdvancedSetting<boolean> {
   readonly id: string;
   readonly label: string;
   readonly tooltipText: string;

@@ -1,11 +1,13 @@
 import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
 
 export default defineConfig({
+  plugins: [vue()],
   resolve: {
     alias: {
-      // Use the full Vue build (runtime + template compiler) since main.ts
-      // uses the inline `template:` option. Switch to the runtime-only build
-      // once the app is migrated to SFCs.
+      // Keep the full Vue build (runtime + template compiler) while main.ts
+      // still uses the inline `template:` string option. Remove this alias
+      // once the root component is migrated to an SFC.
       vue: "vue/dist/vue.esm-bundler.js",
     },
   },

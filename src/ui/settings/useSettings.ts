@@ -6,17 +6,15 @@ import { ref, reactive, computed } from "vue";
 import { getTooltipPosition } from "../layout.ts";
 import { Language } from "../../domain/language.ts";
 import { CheckboxSetting } from "./CheckboxSetting.ts";
+import { StartAt1993Setting } from "./StartAt1993Setting.ts";
+import { SeparateForeignSetting } from "./SeparateForeignSetting.ts";
+import { ResolveScryfallSetting } from "./ResolveScryfallSetting.ts";
 import { IntegerSetting } from "./IntegerSetting.ts";
 import { TextSetting } from "./TextSetting.ts";
 import { DropdownSetting } from "./DropdownSetting.ts";
 
 export const SETTINGS = [
-  new CheckboxSetting(
-    "start-at-1993",
-    "Start at 1993",
-    "Checked: first box starts at 1993. Unchecked: starts at your oldest year.",
-    true,
-  ),
+  new StartAt1993Setting(),
   new IntegerSetting(
     "box-capacity",
     "Box capacity",
@@ -26,12 +24,7 @@ export const SETTINGS = [
     null,
     1,
   ),
-  new CheckboxSetting(
-    "separate-foreign",
-    "Separate foreign language cards",
-    "When enabled, non-native-language cards are grouped together and packed into dedicated Foreign boxes at the end. When disabled, they are packed in with their set by release year.",
-    true,
-  ),
+  new SeparateForeignSetting(),
   new DropdownSetting(
     "native-language",
     "Native language",
@@ -39,12 +32,7 @@ export const SETTINGS = [
     Language.English.name,
     Language.getNames().map((n) => ({ value: n, label: n })),
   ),
-  new CheckboxSetting(
-    "resolve-scryfall",
-    "Resolve collector numbers from Scryfall",
-    "When enabled, collector numbers are resolved from Scryfall for accuracy. When disabled, the input values are used as-is.",
-    true,
-  ),
+  new ResolveScryfallSetting(),
 ];
 
 export const SETTINGS_BY_ID = Object.fromEntries(SETTINGS.map((s) => [s.id, s]));

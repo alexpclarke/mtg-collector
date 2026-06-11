@@ -17,8 +17,10 @@ import { colorForIndex } from "./ui/colors.ts";
 import { cardsForBox, boxModalColumns, cardRowKey } from "./ui/layout.ts";
 import { openExternalLink, trapModalFocus } from "./ui/dom.ts";
 import { useSettings } from "./ui/settings/useSettings.ts";
+import SettingCheckbox from "./ui/settings/SettingCheckbox.vue";
 
 createApp({
+  components: { SettingCheckbox },
   setup() {
     const file = ref(null);
     const loading = ref(false);
@@ -355,48 +357,42 @@ createApp({
             <div class="cds--accordion__wrapper">
               <div class="cds--accordion__content">
                 <div class="settings-grid" @click="focusSettingInput($event)">
-                  <div
-                    v-for="setting in SETTINGS"
-                    :key="setting.id"
-                    class="cds--layer settings-item"
-                    :class="{ 'settings-item--toggle': setting instanceof CheckboxSetting }"
-                    @click="setting instanceof CheckboxSetting && toggleSettingCheckbox($event, setting.id)"
-                  >
-                    <div class="settings-item-head">
-                      <label v-if="!(setting instanceof CheckboxSetting)" class="cds--label" :for="setting.id">{{ setting.label }}</label>
-                      <span v-else class="cds--label">{{ setting.label }}</span>
-                      <span class="settings-info">
-                        <span
-                          class="cds--tooltip-trigger__wrapper settings-info-trigger"
-                          tabindex="0"
-                          :aria-label="setting.label + ' setting info'"
-                          :aria-describedby="openSettingsTooltip === setting.id ? 'settings-tooltip' : undefined"
-                          @mouseenter="showSettingsTooltip(setting.id, $event)"
-                          @mouseleave="hideSettingsTooltip(setting.id)"
-                          @mousemove="updateSettingsTooltipPosition($event)"
-                          @focus="showSettingsTooltip(setting.id, $event)"
-                          @blur="hideSettingsTooltip(setting.id)"
-                          @keydown.esc.stop.prevent="hideSettingsTooltip(setting.id)"
-                        >
-                          <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-                            <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
-                            <path d="M8.5 11h-1V7h1zm0-6h-1V4h1z"></path>
-                          </svg>
+                  <template v-for="setting in SETTINGS" :key="setting.id">
+                    <SettingCheckbox
+                      v-if="setting instanceof CheckboxSetting"
+                      :setting="setting"
+                      v-model="settingRefs[setting.id]"
+                      :is-tooltip-open="openSettingsTooltip === setting.id"
+                      @show-tooltip="showSettingsTooltip"
+                      @hide-tooltip="hideSettingsTooltip"
+                      @move-tooltip="updateSettingsTooltipPosition"
+                    />
+
+                    <div v-else class="cds--layer settings-item">
+                      <div class="settings-item-head">
+                        <label class="cds--label" :for="setting.id">{{ setting.label }}</label>
+                        <span class="settings-info">
+                          <span
+                            class="cds--tooltip-trigger__wrapper settings-info-trigger"
+                            tabindex="0"
+                            :aria-label="setting.label + ' setting info'"
+                            :aria-describedby="openSettingsTooltip === setting.id ? 'settings-tooltip' : undefined"
+                            @mouseenter="showSettingsTooltip(setting.id, $event)"
+                            @mouseleave="hideSettingsTooltip(setting.id)"
+                            @mousemove="updateSettingsTooltipPosition($event)"
+                            @focus="showSettingsTooltip(setting.id, $event)"
+                            @blur="hideSettingsTooltip(setting.id)"
+                            @keydown.esc.stop.prevent="hideSettingsTooltip(setting.id)"
+                          >
+                            <svg class="settings-info-icon" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                              <path d="M8 1a7 7 0 1 0 7 7 7 7 0 0 0-7-7zm0 13a6 6 0 1 1 6-6 6 6 0 0 1-6 6z"></path>
+                              <path d="M8.5 11h-1V7h1zm0-6h-1V4h1z"></path>
+                            </svg>
+                          </span>
                         </span>
-                      </span>
-                    </div>
-
-                    <template v-if="setting instanceof CheckboxSetting">
-                      <div class="cds--checkbox-wrapper settings-input settings-toggle-row">
-                        <input :id="setting.id" class="cds--checkbox" type="checkbox"
-                          :checked="settingRefs[setting.id]"
-                          @change="settingRefs[setting.id] = $event.target.checked"
-                        />
-                        <label :for="setting.id" class="cds--checkbox-label">Enabled</label>
                       </div>
-                    </template>
 
-                    <template v-else-if="setting instanceof IntegerSetting">
+                    <template v-if="setting instanceof IntegerSetting">
                       <div class="cds--number settings-input" data-number>
                         <div class="cds--number__input-wrapper">
                           <input
@@ -467,7 +463,8 @@ createApp({
                         </div>
                       </div>
                     </template>
-                  </div>
+                    </div>
+                  </template>
                 </div>
               </div>
             </div>
