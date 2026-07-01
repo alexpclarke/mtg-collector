@@ -23,7 +23,7 @@ async function buildScryfallData() {
 
   const setsFile = await findLatestFile(dataDir, /^sets-\d{4}-\d{2}-\d{2}\.json\.gz$/);
   if (setsFile) {
-    await copyFile(setsFile, path.join(outDir, "sets.json.gz"));
+    await fs.copyFile(setsFile, path.join(outDir, "sets.json.gz"));
     console.log(`Copied sets data from ${path.basename(setsFile)}.`);
   } else {
     console.warn("Warning: no sets bulk data found in data/scryfall/. Run the update-scryfall-bulk-data workflow first.");

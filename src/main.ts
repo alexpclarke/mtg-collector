@@ -15,7 +15,7 @@ import "./ui/theme.ts";
 import { buildSetMappings } from "./domain/sets.ts";
 import { languageAbbreviation, formatSetCode, parseRows, packSetsIntoBoxes, isForeignBoxLabel, formatForeignCodes, foreignCardsBySet } from "./domain/parsing.ts";
 import { colorForIndex } from "./ui/colors.ts";
-import { cardsForBox, boxModalColumns, cardRowKey } from "./ui/layout.ts";
+import { getTooltipPosition, cardsForBox, boxModalColumns, cardRowKey } from "./ui/layout.ts";
 import { openExternalLink, trapModalFocus } from "./ui/dom.ts";
 import { useSettings } from "./ui/settings/useSettings.ts";
 import SettingCheckbox from "./ui/settings/SettingCheckbox.vue";

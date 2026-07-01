@@ -7,5 +7,5 @@ export interface AdvancedSetting<T> {
   readonly label: string;
   readonly tooltipText: string;
   readonly defaultValue: T;
-  normalize?(value: T): T;
+  normalize?(_value: T): T;
 }
