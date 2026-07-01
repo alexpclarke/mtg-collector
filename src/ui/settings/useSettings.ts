@@ -5,6 +5,7 @@
 import { ref, reactive, computed } from "vue";
 import { getTooltipPosition } from "../layout.ts";
 import { Language } from "../../domain/language.ts";
+import type { AdvancedSetting } from "../../domain/settings/AdvancedSetting.ts";
 import { CheckboxSetting } from "../../domain/settings/CheckboxSetting.ts";
 
 import { IntegerSetting } from "../../domain/settings/IntegerSetting.ts";
@@ -67,8 +68,8 @@ export function useSettings() {
   }
 
   // Delegates blur normalisation to the setting's own normalize() method.
-  function normalizeSettingValue(settingId) {
-    const setting = SETTINGS_BY_ID[settingId];
+  function normalizeSettingValue(settingId: string) {
+    const setting = SETTINGS_BY_ID[settingId] as AdvancedSetting<string | number | boolean>;
     if (setting?.normalize) {
       settingRefs[settingId] = setting.normalize(settingRefs[settingId]);
     }
