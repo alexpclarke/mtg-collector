@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CheckboxSetting } from "../../domain/settings/CheckboxSetting.ts";
+import type { CheckboxSetting } from "../../domain/settings/CheckboxSetting.ts";
 
 const props = defineProps<{
   setting: CheckboxSetting;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { TextSetting } from "../../domain/settings/TextSetting.ts";
+import type { TextSetting } from "../../domain/settings/TextSetting.ts";
 
 defineProps<{
   setting: TextSetting;

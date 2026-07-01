@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IntegerSetting } from "../../domain/settings/IntegerSetting.ts";
+import type { IntegerSetting } from "../../domain/settings/IntegerSetting.ts";
 
 defineProps<{
   setting: IntegerSetting;

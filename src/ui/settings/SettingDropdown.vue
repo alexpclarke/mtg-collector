@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T extends string">
-import { DropdownSetting } from "../../domain/settings/DropdownSetting.ts";
+import type { DropdownSetting } from "../../domain/settings/DropdownSetting.ts";
 
 defineProps<{
   setting: DropdownSetting<T>;
