@@ -6,8 +6,6 @@ export class DropdownSetting<T> implements AdvancedSetting<T> {
   readonly tooltipText: string;
   readonly defaultValue: T;
   readonly options: ReadonlyArray<{ readonly value: T; readonly label: string }>;
-  readonly isToggle = false;
-  readonly type = "dropdown";
 
   constructor(
     id: string,

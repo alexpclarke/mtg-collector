@@ -1,13 +1,13 @@
 import type { AdvancedSetting } from "./AdvancedSetting.ts";
 
-export class TextSetting implements AdvancedSetting<string> {
+// Abstract class rather than interface so that `instanceof TextSetting`
+// works at runtime in the Vue template for type-based rendering.
+export abstract class TextSetting implements AdvancedSetting<string> {
   readonly id: string;
   readonly label: string;
   readonly tooltipText: string;
   readonly defaultValue: string;
   readonly placeholder: string;
-  readonly isToggle = false;
-  readonly type = "text";
 
   constructor(
     id: string,

@@ -1,5 +1,5 @@
-export type { AdvancedSetting } from "./settings/AdvancedSetting.ts";
-export { CheckboxSetting } from "./settings/CheckboxSetting.ts";
-export { IntegerSetting } from "./settings/IntegerSetting.ts";
-export { TextSetting } from "./settings/TextSetting.ts";
-export { DropdownSetting } from "./settings/DropdownSetting.ts";
+export type { AdvancedSetting } from "../domain/settings/AdvancedSetting.ts";
+export { CheckboxSetting } from "../domain/settings/CheckboxSetting.ts";
+export { IntegerSetting } from "../domain/settings/IntegerSetting.ts";
+export { TextSetting } from "../domain/settings/TextSetting.ts";
+export { DropdownSetting } from "../domain/settings/DropdownSetting.ts";

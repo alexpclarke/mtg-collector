@@ -9,7 +9,6 @@ export function resetRunOutputRefs(refs) {
   refs.boxes.value = [];
   refs.missingEditionList.value = [];
   refs.missingEditionTotal.value = 0;
-  refs.binderTotal.value = 0;
   refs.totalCards.value = 0;
   refs.selectedBoxIndex.value = null;
   refs.selectedSetInfo.value = null;

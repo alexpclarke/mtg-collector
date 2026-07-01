@@ -13,13 +13,13 @@ A browser-based Vue app for packing MTG inventory CSV data into box groups, with
 ## Project Layout
 
 - `index.html` - App entry page
-- `src/main.js` - App composition and Vue template
-- `src/domain/sorting.js` - Sorting helpers
-- `src/domain/packing.js` - Packing/chunking helpers
-- `src/services/scryfall.js` - Scryfall fetch/cache helpers
-- `src/ui/run-state.js` - Run/reset failure-state helpers
+- `src/main.ts` - App composition and Vue template
+- `src/domain/` - Pure business logic (parsing, packing, sorting, sets, language)
+- `src/services/scryfall.ts` - Scryfall fetch/cache helpers
+- `src/ui/settings/` - Advanced settings definitions and `useSettings` composable
+- `src/ui/run-state.ts` - Run/reset failure-state helpers
 - `src/ui/styles.scss` - App styles source (Sass)
-- `scripts/build.js` - Static build script (`dist/` output)
+- `scripts/build.js` - Scryfall data sync script (`public/data/` output)
 - `tests/domain/` - Domain-level unit tests
 - `tests/ui/` - UI state unit tests
 - `tests/resources/` - CSV fixture resources (gitignored)
@@ -36,20 +36,13 @@ npm ci
 
 ## Run Locally
 
-Build and serve the dist output:
+Start the Vite dev server:
 
 ```bash
 npm run dev
 ```
 
-Or run in two steps:
-
-```bash
-npm run build
-npm run serve
-```
-
-Then open the URL printed by `serve`.
+Then open the URL printed in the terminal.
 
 ## Test
 
@@ -73,10 +66,10 @@ Generate a static `dist/` output:
 npm run build
 ```
 
-Serve built output locally:
+Preview built output locally:
 
 ```bash
-npm run serve
+npm run preview
 ```
 
 Clean build output:
@@ -85,10 +78,15 @@ Clean build output:
 npm run clean
 ```
 
-- `scripts/build.js` writes a minified `dist/index.html` that references built assets.
-- Sass compiles `src/ui/styles.scss` into `dist/assets/styles.min.css`.
-- esbuild bundles/minifies app code into `dist/assets/app.min.js`.
-- `scripts/optimize-dist.js` applies content-hashed asset filenames and rewrites `dist/index.html` references.
+Vite bundles and minifies all TypeScript, compiles Sass, and produces content-hashed assets in `dist/`.
+
+### Scryfall data
+
+Scryfall bulk data files (sets + card index) are not bundled — they live in `public/data/` and are synced separately:
+
+```bash
+npm run sync:data
+```
 
 ## CI/CD
 

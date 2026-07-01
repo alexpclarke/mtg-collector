@@ -2,15 +2,8 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { gzipSync } from "node:zlib";
-import { minify } from "html-minifier-terser";
 
-const DIST = "dist";
-const DIST_ASSETS = path.join(DIST, "assets");
-
-async function copyFile(src, dest) {
-  await fs.mkdir(path.dirname(dest), { recursive: true });
-  await fs.copyFile(src, dest);
-}
+const PUBLIC_DATA = path.join("public", "data");
 
 async function findLatestFile(dir, pattern) {
   let files;
@@ -25,12 +18,12 @@ async function findLatestFile(dir, pattern) {
 
 async function buildScryfallData() {
   const dataDir = "data/scryfall";
-  const outDir = path.join(DIST, "data");
+  const outDir = PUBLIC_DATA;
   await fs.mkdir(outDir, { recursive: true });
 
   const setsFile = await findLatestFile(dataDir, /^sets-\d{4}-\d{2}-\d{2}\.json\.gz$/);
   if (setsFile) {
-    await copyFile(setsFile, path.join(outDir, "sets.json.gz"));
+    await fs.copyFile(setsFile, path.join(outDir, "sets.json.gz"));
     console.log(`Copied sets data from ${path.basename(setsFile)}.`);
   } else {
     console.warn("Warning: no sets bulk data found in data/scryfall/. Run the update-scryfall-bulk-data workflow first.");
@@ -59,42 +52,18 @@ async function buildScryfallData() {
   }
 }
 
-async function buildIndexHtml() {
-  const source = await fs.readFile("index.html", "utf8");
-  const rewritten = source
-    .replace('./src/ui/styles.css', './assets/styles.min.css')
-    .replace('./src/main.ts', './assets/app.min.js')
-    .replace('./src/gitrohub-light.svg', './assets/gitrohub-light.svg')
-    .replace('./src/gitrohub-dark.svg', './assets/gitrohub-dark.svg');
-
-  const minified = await minify(rewritten, {
-    collapseWhitespace: true,
-    removeComments: true,
-    keepClosingSlash: true,
-    minifyCSS: false,
-    minifyJS: false,
-  });
-
-  await fs.writeFile(path.join(DIST, "index.html"), minified, "utf8");
-}
-
 async function main() {
-  await fs.rm(DIST, { recursive: true, force: true });
-  await fs.mkdir(DIST_ASSETS, { recursive: true });
-
-  await buildIndexHtml();
-  await copyFile("src/gitrohub-light.svg", path.join(DIST_ASSETS, "gitrohub-light.svg"));
-  await copyFile("src/gitrohub-dark.svg", path.join(DIST_ASSETS, "gitrohub-dark.svg"));
   await buildScryfallData();
 
   try {
     await fs.access("CNAME");
-    await copyFile("CNAME", path.join(DIST, "CNAME"));
+    await fs.mkdir("public", { recursive: true });
+    await fs.copyFile("CNAME", path.join("public", "CNAME"));
   } catch {
   // no-op when CNAME is not present
   }
 
-  console.log("Build scaffold complete. Output in dist/");
+  console.log("Scryfall data prepared in public/data/");
 }
 
 main().catch((error) => {

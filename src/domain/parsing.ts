@@ -26,9 +26,8 @@ const PROMO_FAMILY_KEYWORDS = [
   "love your lgs",
 ];
 
-// Returns true if the row's Tags column contains the exact binder tag
-// (case-insensitive, comma-delimited). Binder rows are counted separately
-// and excluded from box packing.
+// Returns true if the row's Tags column contains the given tag
+// (case-insensitive, comma-delimited).
 export function rowHasTag(row, tag) {
   const tags = (row.Tags || "").trim();
   const normalizedTag = String(tag || "").trim().toLowerCase();
@@ -159,33 +158,24 @@ export function finalizeCardList(entry) {
 }
 
 // Core CSV parsing function. Iterates every row and:
-//   - Skips binder-tagged rows (counted in binderTotal)
 //   - Skips rows with no tradelist count
 //   - Routes missing-edition-code rows to the review list
 //   - Resolves edition codes to canonical set codes via Scryfall mappings
 //   - Groups foreign-language cards into per-language foreign entries
 //   - Routes unresolvable sets (no year) to the review list
 //   - Accumulates all remaining rows into grouped set entries
-// Returns { packable, binderTotal, missingEditionList, missingEditionTotal }.
-export function parseRows(rows, mappings, binderTag, separateForeignLanguage = true, nativeLanguage = FOREIGN_LANGUAGE_ENGLISH) {
+// Returns { packable, missingEditionList, missingEditionTotal }.
+export function parseRows(rows, mappings, separateForeignLanguage = true, nativeLanguage = FOREIGN_LANGUAGE_ENGLISH) {
   const grouped = new Map();
   const yearsPerCode = new Map();
   const foreign = new Map();
   const missingEditionCards = new Map();
   const unresolvedSetCards = new Map();
 
-  let binderTotal = 0;
-
   for (const row of rows) {
-    const isBinder = rowHasTag(row, binderTag);
     const tradelistCountRaw = String(row["Tradelist Count"] || "").trim();
     const count = tradelistCountRaw ? Number(tradelistCountRaw) : 0;
     if (!Number.isFinite(count) || count <= 0) continue;
-
-    if (isBinder) {
-      binderTotal += count;
-      continue;
-    }
 
     const cardName = String(row.Name || "").trim();
     const editionCodeRaw = String(row["Edition Code"] || "").trim();
@@ -337,7 +327,6 @@ export function parseRows(rows, mappings, binderTag, separateForeignLanguage = t
 
   return {
     packable,
-    binderTotal,
     missingEditionList,
     missingEditionTotal: missingEditionList.reduce((acc, x) => acc + x.count, 0),
   };
