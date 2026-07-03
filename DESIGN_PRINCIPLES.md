@@ -1,0 +1,59 @@
+# Design Principles
+
+This document captures the current design principles for this project and should guide future development decisions.
+
+## 1. Keep core business logic independent from UI and external services
+
+Packing, parsing, sorting, and other domain rules should live in plain TypeScript modules with minimal framework or integration coupling.
+
+- UI code should focus on rendering, state orchestration, and user interaction.
+- Service code should focus on external integrations such as Scryfall.
+- Domain code should own the application's business rules and transformations.
+
+## 2. Prefer Carbon-first UI decisions
+
+Use IBM Carbon components, tokens, and interaction patterns by default. Exceptions are allowed, but they should be intentional and justified.
+
+- Prefer Carbon components over custom UI when they meet the need.
+- Prefer Carbon spacing, typography, and color tokens where possible.
+- Treat deviations from Carbon as explicit tradeoffs, not accidental drift.
+
+## 3. Follow idiomatic modern Vue and TypeScript conventions
+
+Default to current, idiomatic Vue 3 and TypeScript patterns unless there is a strong reason not to.
+
+- Prefer standard Vue composition patterns over ad hoc alternatives.
+- Use TypeScript in ways that improve safety, clarity, and maintainability.
+- Treat non-idiomatic patterns as conscious exceptions.
+
+## 4. Test business behavior, not just implementation
+
+Unit tests should protect important business behavior and rules, not merely increase coverage metrics.
+
+- Prioritize tests for packing rules, parsing outcomes, sorting behavior, and edge cases.
+- Focus test effort more heavily on domain logic than on thin UI wiring.
+- Use coverage as a signal, not as the primary goal.
+
+## 5. Normalize input data to Scryfall conventions before applying business logic
+
+Input data should be translated into Scryfall-aligned names, set codes, identifiers, and related conventions as early as possible, before the rest of the application's logic operates on it.
+
+- Treat normalization as a boundary step between external input and internal processing.
+- Prefer a single canonical representation once data enters the domain layer.
+- Avoid spreading format-translation rules throughout packing, sorting, and other downstream logic.
+
+## 6. Use descriptive names throughout the codebase
+
+Names should communicate intent clearly. Avoid abbreviations, acronyms, and single-letter variable names in favor of descriptive names that make the code easier to read and maintain.
+
+- Prefer names that describe business meaning, not just implementation detail.
+- Avoid shortening names when the shorter form reduces clarity.
+- Treat clear naming as a core part of code quality, not just style.
+
+## 7. Prefer established design patterns when they fit the problem
+
+When a well-known design pattern provides a clearer, more maintainable structure, prefer it over inventing a custom approach. Established patterns, including Gang of Four patterns, should be considered useful guidance rather than mandatory rules.
+
+- Prefer familiar patterns when they make responsibilities and collaboration clearer.
+- Use established patterns to simplify reasoning, not to add ceremony.
+- Treat patterns as tools to apply intentionally, not rigid templates to force everywhere.
