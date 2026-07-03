@@ -41,3 +41,11 @@ Input data should be translated into Scryfall-aligned names, set codes, identifi
 - Treat normalization as a boundary step between external input and internal processing.
 - Prefer a single canonical representation once data enters the domain layer.
 - Avoid spreading format-translation rules throughout packing, sorting, and other downstream logic.
+
+## 6. Use descriptive names throughout the codebase
+
+Names should communicate intent clearly. Avoid abbreviations, acronyms, and single-letter variable names in favor of descriptive names that make the code easier to read and maintain.
+
+- Prefer names that describe business meaning, not just implementation detail.
+- Avoid shortening names when the shorter form reduces clarity.
+- Treat clear naming as a core part of code quality, not just style.
