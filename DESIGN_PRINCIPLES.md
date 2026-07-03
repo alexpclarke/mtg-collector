@@ -1,6 +1,6 @@
 # Design Principles
 
-This document captures the current design principles for `/home/runner/work/mtg-collector/mtg-collector` and should guide future development decisions.
+This document captures the current design principles for this project and should guide future development decisions.
 
 ## 1. Keep core business logic independent from UI and external services
 
