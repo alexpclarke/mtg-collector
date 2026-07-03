@@ -49,3 +49,11 @@ Names should communicate intent clearly. Avoid abbreviations, acronyms, and sing
 - Prefer names that describe business meaning, not just implementation detail.
 - Avoid shortening names when the shorter form reduces clarity.
 - Treat clear naming as a core part of code quality, not just style.
+
+## 7. Prefer established design patterns when they fit the problem
+
+When a well-known design pattern provides a clearer, more maintainable structure, prefer it over inventing a custom approach. Established patterns, including Gang of Four patterns, should be considered useful guidance rather than mandatory rules.
+
+- Prefer familiar patterns when they make responsibilities and collaboration clearer.
+- Use established patterns to simplify reasoning, not to add ceremony.
+- Treat patterns as tools to apply intentionally, not rigid templates to force everywhere.
