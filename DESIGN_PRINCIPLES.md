@@ -33,3 +33,11 @@ Unit tests should protect important business behavior and rules, not merely incr
 - Prioritize tests for packing rules, parsing outcomes, sorting behavior, and edge cases.
 - Focus test effort more heavily on domain logic than on thin UI wiring.
 - Use coverage as a signal, not as the primary goal.
+
+## 5. Normalize input data to Scryfall conventions before applying business logic
+
+Input data should be translated into Scryfall-aligned names, set codes, identifiers, and related conventions as early as possible, before the rest of the application's logic operates on it.
+
+- Treat normalization as a boundary step between external input and internal processing.
+- Prefer a single canonical representation once data enters the domain layer.
+- Avoid spreading format-translation rules throughout packing, sorting, and other downstream logic.
