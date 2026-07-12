@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@carbon/styles": "1.109.0",
-    "@carbon/vue": "^3.0.30",
+    "@carbon/vue": "^3.0.31",
     "papaparse": "5.5.3",
     "vue": "3.5.35"
   },
