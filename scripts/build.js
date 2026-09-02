@@ -29,17 +29,20 @@ async function buildScryfallData() {
     console.warn("Warning: no sets bulk data found in data/scryfall/. Run the update-scryfall-bulk-data workflow first.");
   }
 
-  const cardsFile = await findLatestFile(dataDir, /^default-cards-\d{4}-\d{2}-\d{2}\.json\.gz$/);
+  const cardsFile = (await findLatestFile(dataDir, /^default-cards-\d{4}-\d{2}-\d{2}\.jsonl\.gz$/))
+    ?? (await findLatestFile(dataDir, /^default-cards-\d{4}-\d{2}-\d{2}\.json\.gz$/));
   if (cardsFile) {
     console.log(`Building card index from ${path.basename(cardsFile)}...`);
     const tmpFile = path.join(outDir, "_cards-index.tmp.json");
+    const isJsonl = cardsFile.endsWith(".jsonl.gz");
     const pyScript = [
       "import json, sys, gzip",
-      "with gzip.open(sys.argv[1]) as f: cards = json.load(f)",
       "index = {}",
-      "for c in cards:",
-      "    if c.get('id'):",
-      "        index[c['id']] = {'code': (c.get('set') or '').lower(), 'name': c.get('set_name') or '', 'collectorNumber': c.get('collector_number') or '', 'language': c.get('lang') or ''}",
+      "with gzip.open(sys.argv[1], 'rt', encoding='utf-8') as f:",
+      isJsonl ? "    cards = (json.loads(line) for line in f if line.strip())" : "    cards = json.load(f)",
+      "    for c in cards:",
+      "        if c.get('id'):",
+      "            index[c['id']] = {'code': (c.get('set') or '').lower(), 'name': c.get('set_name') or '', 'collectorNumber': c.get('collector_number') or '', 'language': c.get('lang') or ''}",
       "with open(sys.argv[2], 'w') as out: json.dump(index, out, separators=(',',':'))",
     ].join("\n");
     execFileSync("python3", ["-c", pyScript, cardsFile, tmpFile]);
