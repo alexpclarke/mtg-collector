@@ -33,7 +33,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: main
 
       - name: Restore last known-good Scryfall data (fallback)
         uses: actions/cache/restore@v6
@@ -76,11 +76,13 @@ jobs:
           echo "unchanged=$([ "$HASH" = "$OLD_HASH" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
       - name: Download default-cards (sets changed or no cached data)
+        env:
+          SETS_UNCHANGED: ${{ steps.sets.outputs.unchanged }}
         run: |
           UA="box-packer/1.0 (github.com/${{ github.repository }})"
           DATE="${{ steps.sets.outputs.date }}"
 
-          if [ "${{ steps.sets.outputs.unchanged }}" = "true" ] && ls data/scryfall/default-cards-*.jsonl.gz >/dev/null 2>&1; then
+          if [ "$SETS_UNCHANGED" = "true" ] && ls data/scryfall/default-cards-*.jsonl.gz >/dev/null 2>&1; then
             echo "Sets unchanged and cached default-cards data present; skipping download."
           else
             if DOWNLOAD_URI=$(curl -sf -A "$UA" https://api.scryfall.com/bulk-data \
