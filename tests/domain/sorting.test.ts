@@ -3,12 +3,18 @@ import assert from "node:assert/strict";
 import { compareCollectorNumbers, sortCardsForDisplay, sortNeedsReviewRows } from "../../src/domain/sorting.ts";
 
 test("given mixed collector numbers when sorting then numeric order is applied before lexical suffix variants", () => {
+  // Setup
   const values = ["10", "2", "12a", "12", "1"];
+
+  // Exercise
   const sorted = [...values].sort(compareCollectorNumbers);
+
+  // Verify
   assert.deepEqual(sorted, ["1", "2", "10", "12", "12a"]);
 });
 
 test("given cards with same and different collectors when sorting for display then order is collector then name with foil last", () => {
+  // Setup
   const cards = [
     { name: "Zeta", collectorNumber: "10", foil: false },
     { name: "Alpha", collectorNumber: "2", foil: true },
@@ -16,7 +22,10 @@ test("given cards with same and different collectors when sorting for display th
     { name: "Beta", collectorNumber: "2", foil: false },
   ];
 
+  // Exercise
   const sorted = sortCardsForDisplay(cards);
+
+  // Verify
   assert.deepEqual(
     sorted.map((card) => `${card.collectorNumber}|${card.name}|${card.foil ? "foil" : "nonfoil"}`),
     ["2|Alpha|nonfoil", "2|Alpha|foil", "2|Beta|nonfoil", "10|Zeta|nonfoil"]
@@ -24,6 +33,7 @@ test("given cards with same and different collectors when sorting for display th
 });
 
 test("given needs review rows when sorting then order is edition then code then collector then name then language", () => {
+  // Setup
   const rows = [
     { edition: "Set B", code: "bbb", collectorNumber: "3", name: "Gamma", language: "English" },
     { edition: "Set A", code: "aaa", collectorNumber: "10", name: "Beta", language: "English" },
@@ -31,7 +41,10 @@ test("given needs review rows when sorting then order is edition then code then 
     { edition: "Set A", code: "aaa", collectorNumber: "2", name: "Alpha", language: "English" },
   ];
 
+  // Exercise
   const sorted = sortNeedsReviewRows(rows);
+
+  // Verify
   assert.deepEqual(
     sorted.map((row) => `${row.edition}|${row.code}|${row.collectorNumber}|${row.name}|${row.language}`),
     [

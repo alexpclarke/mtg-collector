@@ -341,6 +341,10 @@ export function parseRows(rows, mappings, separateForeignLanguage = true, native
 //   5. Sort each box’s contents by release date for display
 // Returns an array of box objects: { label, totalCount, sets[] }.
 export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
+  if (!Number.isFinite(boxCapacity) || boxCapacity <= 0) {
+    throw new Error(`Invalid boxCapacity: expected a positive finite number, got ${boxCapacity}`);
+  }
+
   const { firstBoxStartYear = null, separateForeignLanguage = true, mappings = null, nativeLanguage = FOREIGN_LANGUAGE_ENGLISH } = options;
   function closeBox(contents, total, labelOverride = null) {
     if (labelOverride) return { label: labelOverride, totalCount: total, sets: contents };
@@ -350,18 +354,45 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
     return { label: start === end ? String(start) : `${start}-${end}`, totalCount: total, sets: contents };
   }
 
+  // Scans queue[1..] (queue[0] is assumed to already not fit) for the largest
+  // item that still fits in remainingSpace, so a box can be topped off with a
+  // smaller upcoming item instead of closing early with wasted space.
+  function findBestFitIndex(queue, remainingSpace) {
+    let bestIndex = -1;
+    let bestCount = -1;
+    for (let i = 1; i < queue.length; i += 1) {
+      const count = queue[i].count;
+      if (count <= remainingSpace && count > bestCount) {
+        bestCount = count;
+        bestIndex = i;
+      }
+    }
+    return bestIndex;
+  }
+
   function packGroup(groupSets, label, numberWhenMultiple = false) {
+    const queue = [...groupSets];
     const out = [];
     let current = [];
     let total = 0;
-    for (const s of groupSets) {
-      if (current.length && total + s.count > boxCapacity) {
-        out.push(closeBox(current, total, label));
-        current = [];
-        total = 0;
+    while (queue.length) {
+      const next = queue[0];
+      if (total + next.count <= boxCapacity) {
+        current.push(next);
+        total += next.count;
+        queue.shift();
+        continue;
       }
-      current.push(s);
-      total += s.count;
+      const bestFitIndex = findBestFitIndex(queue, boxCapacity - total);
+      if (bestFitIndex !== -1) {
+        const [item] = queue.splice(bestFitIndex, 1);
+        current.push(item);
+        total += item.count;
+        continue;
+      }
+      out.push(closeBox(current, total, label));
+      current = [];
+      total = 0;
     }
     if (current.length) out.push(closeBox(current, total, label));
 
@@ -383,7 +414,13 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
   const special = remaining.filter((s) => isSpecialSet(s, mappings));
   remaining = remaining.filter((s) => !isSpecialSet(s, mappings));
 
-  const known = remaining.filter((s) => s.year);
+  const unresolvedYearSets = remaining.filter((s) => !s.year);
+  if (unresolvedYearSets.length) {
+    const codes = unresolvedYearSets.map((s) => s.code).join(", ");
+    throw new Error(`Cannot pack sets with unresolved year: ${codes}`);
+  }
+
+  const known = remaining;
 
   const byYear = new Map();
   for (const s of known) {
@@ -393,23 +430,39 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
     byYear.set(y, list);
   }
 
-  const ordered = [...byYear.keys()]
-    .sort((a, b) => a - b)
-    .flatMap((y) => byYear.get(y).sort((a, b) => b.count - a.count || a.code.localeCompare(b.code)));
-
+  // Fills boxes chronologically (year ascending), same as before, but within
+  // each year's queue uses a bounded best-fit lookahead: when the next set in
+  // sorted order doesn't fit the remaining space, a smaller upcoming set from
+  // later in the SAME year is pulled forward to top off the box instead of
+  // closing it early. This never reorders sets across a year boundary, so a
+  // box's year range still always contains every set from its interior years.
   const boxes = [];
   let current = [];
   let total = 0;
-  for (const s of ordered) {
-    if (current.length && total + s.count > boxCapacity) {
+  for (const year of [...byYear.keys()].sort((a, b) => a - b)) {
+    const yearQueue = byYear.get(year).sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+    while (yearQueue.length) {
+      const next = yearQueue[0];
+      if (total + next.count <= boxCapacity) {
+        current.push(next);
+        total += next.count;
+        yearQueue.shift();
+        continue;
+      }
+      const bestFitIndex = findBestFitIndex(yearQueue, boxCapacity - total);
+      if (bestFitIndex !== -1) {
+        const [item] = yearQueue.splice(bestFitIndex, 1);
+        current.push(item);
+        total += item.count;
+        continue;
+      }
       boxes.push(closeBox(current, total));
       current = [];
       total = 0;
     }
-    current.push(s);
-    total += s.count;
   }
   if (current.length) boxes.push(closeBox(current, total));
+
 
   if (boxes.length && boxes[0].sets.length) {
     const firstBoxYears = boxes[0].sets.map((x) => x.year).filter(Boolean);
