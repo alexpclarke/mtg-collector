@@ -28,7 +28,7 @@
     "@types/node": "^26.1.0",
     "@types/papaparse": "5.5.2",
     "@typescript-eslint/parser": "^8.62.1",
-    "@vitejs/plugin-vue": "5.2.4",
+    "@vitejs/plugin-vue": "6.0.7",
     "eslint": "^10.6.0",
     "globals": "^17.7.0",
     "sass": "^1.101.0",
