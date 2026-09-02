@@ -54,7 +54,7 @@ jobs:
         id: cache
         uses: actions/cache@v6
         with:
-          path: data/scryfall/default-cards-*.json.gz
+          path: data/scryfall/default-cards-*.jsonl.gz
           key: scryfall-default-cards-${{ steps.sets.outputs.hash }}
 
       - name: Download default-cards (cache miss — sets have changed)
@@ -68,10 +68,11 @@ jobs:
           import json, sys
           for item in json.load(sys.stdin)['data']:
               if item['type'] == 'default_cards':
-                  print(item['download_uri']); break
+                  print(item['jsonl_download_uri']); break
           ")
 
-          curl -sf -L -A "$UA" "$DOWNLOAD_URI" | gzip > "data/scryfall/default-cards-${DATE}.json.gz"
+          # jsonl_download_uri already points to a gzip-compressed .jsonl.gz file — download as-is.
+          curl -sf -L -A "$UA" "$DOWNLOAD_URI" -o "data/scryfall/default-cards-${DATE}.jsonl.gz"
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
