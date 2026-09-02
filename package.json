@@ -20,8 +20,8 @@
   "dependencies": {
     "@carbon/styles": "1.109.0",
     "@carbon/vue": "^3.0.30",
-    "papaparse": "5.5.3",
-    "vue": "3.5.35"
+    "papaparse": "5.5.4",
+    "vue": "3.5.39"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
