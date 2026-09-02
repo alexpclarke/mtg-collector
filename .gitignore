@@ -4,6 +4,8 @@ dist/
 .cache/
 .gh-pages/
 data/scryfall/*.json.gz
+data/scryfall/*.jsonl.gz
+data/scryfall/.sets-hash
 
 # OS noise
 .DS_Store

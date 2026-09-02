@@ -18,6 +18,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write
 
 concurrency:
   group: pages
@@ -34,45 +35,75 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Restore last known-good Scryfall data (fallback)
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            data/scryfall/sets-*.json.gz
+            data/scryfall/default-cards-*.jsonl.gz
+            data/scryfall/.sets-hash
+          key: scryfall-data-fallback
+
       - name: Fetch Scryfall sets and compute hash
         id: sets
         run: |
           UA="box-packer/1.0 (github.com/${{ github.repository }})"
           mkdir -p data/scryfall
-
-          SETS_DATA=$(curl -sf -A "$UA" https://api.scryfall.com/sets \
-            | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['data'], indent=2))")
-
           DATE=$(date -u +%F)
-          echo "$SETS_DATA" | gzip > "data/scryfall/sets-${DATE}.json.gz"
 
-          HASH=$(echo "$SETS_DATA" | sha256sum | cut -d' ' -f1)
+          OLD_HASH=""
+          [ -f data/scryfall/.sets-hash ] && OLD_HASH=$(cat data/scryfall/.sets-hash)
+
+          if SETS_DATA=$(curl -sf -A "$UA" https://api.scryfall.com/sets \
+            | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['data'], indent=2))"); then
+            echo "$SETS_DATA" | gzip > "data/scryfall/sets-${DATE}.json.gz"
+            echo "Fetched fresh Scryfall sets data."
+          else
+            echo "::warning::Failed to fetch fresh Scryfall sets data; falling back to last known-good cached copy."
+          fi
+
+          SETS_FILE=$(ls -t data/scryfall/sets-*.json.gz 2>/dev/null | head -1)
+          if [ -z "$SETS_FILE" ]; then
+            echo "::error::No Scryfall sets data available (fetch failed and no cached fallback found)."
+            exit 1
+          fi
+
+          HASH=$(gzip -dc "$SETS_FILE" | sha256sum | cut -d' ' -f1)
+          FILE_DATE=$(basename "$SETS_FILE" | sed -E 's/^sets-(.+)\.json\.gz$/\1/')
+          echo "$HASH" > data/scryfall/.sets-hash
           echo "hash=${HASH}" >> "$GITHUB_OUTPUT"
-          echo "date=${DATE}" >> "$GITHUB_OUTPUT"
+          echo "date=${FILE_DATE}" >> "$GITHUB_OUTPUT"
+          echo "unchanged=$([ "$HASH" = "$OLD_HASH" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-      - name: Restore default-cards from cache
-        id: cache
-        uses: actions/cache@v6
-        with:
-          path: data/scryfall/default-cards-*.jsonl.gz
-          key: scryfall-default-cards-${{ steps.sets.outputs.hash }}
-
-      - name: Download default-cards (cache miss — sets have changed)
-        if: steps.cache.outputs.cache-hit != 'true'
+      - name: Download default-cards (sets changed or no cached data)
         run: |
           UA="box-packer/1.0 (github.com/${{ github.repository }})"
           DATE="${{ steps.sets.outputs.date }}"
 
-          DOWNLOAD_URI=$(curl -sf -A "$UA" https://api.scryfall.com/bulk-data \
-            | python3 -c "
+          if [ "${{ steps.sets.outputs.unchanged }}" = "true" ] && ls data/scryfall/default-cards-*.jsonl.gz >/dev/null 2>&1; then
+            echo "Sets unchanged and cached default-cards data present; skipping download."
+          else
+            if DOWNLOAD_URI=$(curl -sf -A "$UA" https://api.scryfall.com/bulk-data \
+              | python3 -c "
           import json, sys
           for item in json.load(sys.stdin)['data']:
               if item['type'] == 'default_cards':
                   print(item['jsonl_download_uri']); break
-          ")
+          "); then
+              # jsonl_download_uri already points to a gzip-compressed .jsonl.gz file — download as-is.
+              if curl -sf -L -A "$UA" "$DOWNLOAD_URI" -o "data/scryfall/default-cards-${DATE}.jsonl.gz.tmp"; then
+                mv "data/scryfall/default-cards-${DATE}.jsonl.gz.tmp" "data/scryfall/default-cards-${DATE}.jsonl.gz"
+              fi
+            else
+              echo "::warning::Failed to fetch fresh default-cards data; falling back to last known-good cached copy."
+            fi
+          fi
 
-          # jsonl_download_uri already points to a gzip-compressed .jsonl.gz file — download as-is.
-          curl -sf -L -A "$UA" "$DOWNLOAD_URI" -o "data/scryfall/default-cards-${DATE}.jsonl.gz"
+          if ! ls data/scryfall/default-cards-*.jsonl.gz >/dev/null 2>&1; then
+            echo "::error::No default-cards data available (fetch failed and no cached fallback found)."
+            exit 1
+          fi
+          echo "Using $(ls -t data/scryfall/default-cards-*.jsonl.gz | head -1)"
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -83,8 +114,36 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Sync Scryfall data into public/
+        run: npm run sync:data
+
       - name: Build project
         run: npm run build
+
+      - name: Prune old Scryfall data files before caching
+        if: always()
+        run: |
+          cd data/scryfall
+          ls -t sets-*.json.gz 2>/dev/null | tail -n +2 | xargs -r rm --
+          ls -t default-cards-*.jsonl.gz 2>/dev/null | tail -n +2 | xargs -r rm --
+
+      - name: Delete previous fallback cache entry
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh cache delete scryfall-data-fallback --repo "${{ github.repository }}"
+
+      - name: Save Scryfall data as fallback for future runs
+        if: always()
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            data/scryfall/sets-*.json.gz
+            data/scryfall/default-cards-*.jsonl.gz
+            data/scryfall/.sets-hash
+          key: scryfall-data-fallback
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5.0.0
