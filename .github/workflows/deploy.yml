@@ -41,18 +41,15 @@ jobs:
           path: |
             data/scryfall/sets-*.json.gz
             data/scryfall/default-cards-*.jsonl.gz
-            data/scryfall/.sets-hash
+            data/scryfall/.default-cards-updated-at
           key: scryfall-data-fallback
 
-      - name: Fetch Scryfall sets and compute hash
+      - name: Fetch Scryfall sets
         id: sets
         run: |
           UA="box-packer/1.0 (github.com/${{ github.repository }})"
           mkdir -p data/scryfall
           DATE=$(date -u +%F)
-
-          OLD_HASH=""
-          [ -f data/scryfall/.sets-hash ] && OLD_HASH=$(cat data/scryfall/.sets-hash)
 
           if SETS_DATA=$(curl -sf -A "$UA" https://api.scryfall.com/sets \
             | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['data'], indent=2))"); then
@@ -68,32 +65,36 @@ jobs:
             exit 1
           fi
 
-          HASH=$(gzip -dc "$SETS_FILE" | sha256sum | cut -d' ' -f1)
           FILE_DATE=$(basename "$SETS_FILE" | sed -E 's/^sets-(.+)\.json\.gz$/\1/')
-          echo "$HASH" > data/scryfall/.sets-hash
-          echo "hash=${HASH}" >> "$GITHUB_OUTPUT"
           echo "date=${FILE_DATE}" >> "$GITHUB_OUTPUT"
-          echo "unchanged=$([ "$HASH" = "$OLD_HASH" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-      - name: Download default-cards (sets changed or no cached data)
+      - name: Download default-cards (bulk-data updated since last run, or no cached data)
         run: |
           UA="box-packer/1.0 (github.com/${{ github.repository }})"
           DATE="${{ steps.sets.outputs.date }}"
 
-          if [ "${{ steps.sets.outputs.unchanged }}" = "true" ] && ls data/scryfall/default-cards-*.jsonl.gz >/dev/null 2>&1; then
-            echo "Sets unchanged and cached default-cards data present; skipping download."
-          else
-            if DOWNLOAD_URI=$(curl -sf -A "$UA" https://api.scryfall.com/bulk-data \
-              | python3 -c "
+          OLD_UPDATED_AT=""
+          [ -f data/scryfall/.default-cards-updated-at ] && OLD_UPDATED_AT=$(cat data/scryfall/.default-cards-updated-at)
+
+          BULK_DATA_ITEM=$(curl -sf -A "$UA" https://api.scryfall.com/bulk-data \
+            | python3 -c "
           import json, sys
           for item in json.load(sys.stdin)['data']:
               if item['type'] == 'default_cards':
-                  print(item['jsonl_download_uri']); break
-          "); then
-              # jsonl_download_uri already points to a gzip-compressed .jsonl.gz file — download as-is.
-              if curl -sf -L -A "$UA" "$DOWNLOAD_URI" -o "data/scryfall/default-cards-${DATE}.jsonl.gz.tmp"; then
-                mv "data/scryfall/default-cards-${DATE}.jsonl.gz.tmp" "data/scryfall/default-cards-${DATE}.jsonl.gz"
-              fi
+                  print(item['updated_at']); print(item['jsonl_download_uri']); break
+          ")
+          NEW_UPDATED_AT=$(echo "$BULK_DATA_ITEM" | sed -n 1p)
+          DOWNLOAD_URI=$(echo "$BULK_DATA_ITEM" | sed -n 2p)
+
+          if [ -z "$NEW_UPDATED_AT" ]; then
+            echo "::warning::Failed to query Scryfall bulk-data metadata; falling back to last known-good cached copy."
+          elif [ "$NEW_UPDATED_AT" = "$OLD_UPDATED_AT" ] && ls data/scryfall/default-cards-*.jsonl.gz >/dev/null 2>&1; then
+            echo "default-cards data unchanged since last run (updated_at=${NEW_UPDATED_AT}); skipping download."
+          else
+            # jsonl_download_uri already points to a gzip-compressed .jsonl.gz file — download as-is.
+            if curl -sf -L -A "$UA" "$DOWNLOAD_URI" -o "data/scryfall/default-cards-${DATE}.jsonl.gz.tmp"; then
+              mv "data/scryfall/default-cards-${DATE}.jsonl.gz.tmp" "data/scryfall/default-cards-${DATE}.jsonl.gz"
+              echo "$NEW_UPDATED_AT" > data/scryfall/.default-cards-updated-at
             else
               echo "::warning::Failed to fetch fresh default-cards data; falling back to last known-good cached copy."
             fi
@@ -142,7 +143,7 @@ jobs:
           path: |
             data/scryfall/sets-*.json.gz
             data/scryfall/default-cards-*.jsonl.gz
-            data/scryfall/.sets-hash
+            data/scryfall/.default-cards-updated-at
           key: scryfall-data-fallback
 
       - name: Upload Pages artifact
