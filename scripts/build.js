@@ -40,9 +40,9 @@ async function buildScryfallData() {
       "index = {}",
       "with gzip.open(sys.argv[1], 'rt', encoding='utf-8') as f:",
       isJsonl ? "    cards = (json.loads(line) for line in f if line.strip())" : "    cards = json.load(f)",
-      "for c in cards:",
-      "    if c.get('id'):",
-      "        index[c['id']] = {'code': (c.get('set') or '').lower(), 'name': c.get('set_name') or '', 'collectorNumber': c.get('collector_number') or '', 'language': c.get('lang') or ''}",
+      "    for c in cards:",
+      "        if c.get('id'):",
+      "            index[c['id']] = {'code': (c.get('set') or '').lower(), 'name': c.get('set_name') or '', 'collectorNumber': c.get('collector_number') or '', 'language': c.get('lang') or ''}",
       "with open(sys.argv[2], 'w') as out: json.dump(index, out, separators=(',',':'))",
     ].join("\n");
     execFileSync("python3", ["-c", pyScript, cardsFile, tmpFile]);

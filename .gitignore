@@ -6,6 +6,7 @@ dist/
 data/scryfall/*.json.gz
 data/scryfall/*.jsonl.gz
 data/scryfall/.sets-hash
+public/
 
 # OS noise
 .DS_Store
