@@ -35,6 +35,12 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
       - name: Restore last known-good Scryfall data (fallback)
         uses: actions/cache/restore@v6
         with:
@@ -52,7 +58,7 @@ jobs:
           DATE=$(date -u +%F)
 
           if SETS_DATA=$(curl -sf -A "$UA" https://api.scryfall.com/sets \
-            | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin)['data'], indent=2))"); then
+            | node scripts/scryfall-json.mjs sets); then
             echo "$SETS_DATA" | gzip > "data/scryfall/sets-${DATE}.json.gz"
             echo "Fetched fresh Scryfall sets data."
           else
@@ -77,12 +83,7 @@ jobs:
           [ -f data/scryfall/.default-cards-updated-at ] && OLD_UPDATED_AT=$(cat data/scryfall/.default-cards-updated-at)
 
           BULK_DATA_ITEM=$(curl -sf -A "$UA" https://api.scryfall.com/bulk-data \
-            | python3 -c "
-          import json, sys
-          for item in json.load(sys.stdin)['data']:
-              if item['type'] == 'default_cards':
-                  print(item['updated_at']); print(item['jsonl_download_uri']); break
-          ")
+            | node scripts/scryfall-json.mjs bulk-data-default-cards)
           NEW_UPDATED_AT=$(echo "$BULK_DATA_ITEM" | sed -n 1p)
           DOWNLOAD_URI=$(echo "$BULK_DATA_ITEM" | sed -n 2p)
 
@@ -105,12 +106,6 @@ jobs:
             exit 1
           fi
           echo "Using $(ls -t data/scryfall/default-cards-*.jsonl.gz | head -1)"
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: '24'
-          cache: npm
 
       - name: Install dependencies
         run: npm ci
