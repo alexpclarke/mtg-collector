@@ -5,8 +5,13 @@
 // the imported modules and exposes the resulting state/methods to the template.
 // @ts-nocheck
 import { createApp, ref, computed, watch, nextTick } from "vue";
-import CarbonVue from "@carbon/vue";
+import CarbonVueModule from "@carbon/vue";
 import Papa from "papaparse";
+
+// @carbon/vue's UMD bundle isn't detected as an ES module, so bundlers wrap its
+// whole CommonJS exports object (named components + the real plugin) as .default;
+// unwrap it here so app.use() receives the actual { install } plugin object.
+const CarbonVue = CarbonVueModule?.install ? CarbonVueModule : CarbonVueModule.default;
 import "./ui/styles.scss";
 import { resetRunOutputRefs, applyRunFailure } from "./ui/run-state.ts";
 import { loadScryfallSets, fetchScryfallDataTimestamp, resolveCardsByIdentifier, applyResolutionToInventoryRows, buildScryfallCardUrl } from "./services/scryfall.ts";
