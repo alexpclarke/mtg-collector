@@ -38,7 +38,7 @@ export default [
     },
   },
   {
-    files: ["scripts/**/*.js", "tests/**/*.mjs"],
+    files: ["scripts/**/*.js", "scripts/**/*.mjs", "tests/**/*.mjs"],
     languageOptions: {
       sourceType: "module",
       globals: {

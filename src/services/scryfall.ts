@@ -98,10 +98,22 @@ function persistCardCache(cache) {
 async function fetchCompressedJson(url) {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
-  const decompressionStream = new DecompressionStream("gzip");
-  const stream = response.body.pipeThrough(decompressionStream);
-  const text = await new Response(stream).text();
+  const text = await readPossiblyCompressedText(response);
   return JSON.parse(text);
+}
+
+// Some static file servers (e.g. Vite's local preview server) detect the
+// ".gz" extension and set a Content-Encoding: gzip response header, which
+// makes fetch() transparently decompress the body before we ever see it.
+// Running that already-decompressed body through DecompressionStream again
+// throws (surfaced by the browser as a generic "Failed to fetch" TypeError),
+// so only decompress manually when the server hasn't already done so.
+async function readPossiblyCompressedText(response) {
+  if (response.headers?.get("Content-Encoding") === "gzip") {
+    return response.text();
+  }
+  const stream = response.body.pipeThrough(new DecompressionStream("gzip"));
+  return new Response(stream).text();
 }
 
 // Singleton promise for the card index. The index is large (~several MB decompressed)
@@ -245,9 +257,7 @@ export async function loadScryfallSets() {
   const url = "./data/sets.json.gz";
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
-  const decompressionStream = new DecompressionStream("gzip");
-  const stream = response.body.pipeThrough(decompressionStream);
-  const text = await new Response(stream).text();
+  const text = await readPossiblyCompressedText(response);
   const sets = JSON.parse(text);
   const dataTimestamp = response.headers?.get("Last-Modified") ?? null;
   return { sets, dataTimestamp };

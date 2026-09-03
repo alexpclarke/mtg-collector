@@ -1,7 +1,8 @@
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { execFileSync } from "node:child_process";
-import { gzipSync } from "node:zlib";
+import { createReadStream, promises as fs } from "node:fs";
+import readline from "node:readline";
+import { createGunzip, gzipSync } from "node:zlib";
+import { buffer as streamToBuffer } from "node:stream/consumers";
 
 const PUBLIC_DATA = path.join("public", "data");
 
@@ -14,6 +15,41 @@ async function findLatestFile(dir, pattern) {
   }
   const matches = files.filter((f) => pattern.test(f)).sort().reverse();
   return matches.length ? path.join(dir, matches[0]) : null;
+}
+
+// Compact index entry: only the fields the app needs to resolve a Scryfall ID.
+function toIndexEntry(card) {
+  return {
+    code: (card.set || "").toLowerCase(),
+    name: card.set_name || "",
+    collectorNumber: card.collector_number || "",
+    language: card.lang || "",
+  };
+}
+
+// Streams a gzip-compressed JSONL file line-by-line so the full decompressed
+// default-cards payload (several hundred MB) is never held in memory at once.
+async function buildCardIndexFromJsonl(cardsFile) {
+  const index = {};
+  const gunzip = createReadStream(cardsFile).pipe(createGunzip());
+  const lines = readline.createInterface({ input: gunzip, crlfDelay: Infinity });
+  for await (const line of lines) {
+    if (!line.trim()) continue;
+    const card = JSON.parse(line);
+    if (card.id) index[card.id] = toIndexEntry(card);
+  }
+  return index;
+}
+
+// Legacy fallback for a gzip-compressed JSON array (whole file must be buffered).
+async function buildCardIndexFromJsonArray(cardsFile) {
+  const decompressed = await streamToBuffer(createReadStream(cardsFile).pipe(createGunzip()));
+  const cards = JSON.parse(decompressed.toString("utf-8"));
+  const index = {};
+  for (const card of cards) {
+    if (card.id) index[card.id] = toIndexEntry(card);
+  }
+  return index;
 }
 
 async function buildScryfallData() {
@@ -33,21 +69,10 @@ async function buildScryfallData() {
     ?? (await findLatestFile(dataDir, /^default-cards-\d{4}-\d{2}-\d{2}\.json\.gz$/));
   if (cardsFile) {
     console.log(`Building card index from ${path.basename(cardsFile)}...`);
-    const tmpFile = path.join(outDir, "_cards-index.tmp.json");
-    const isJsonl = cardsFile.endsWith(".jsonl.gz");
-    const pyScript = [
-      "import json, sys, gzip",
-      "index = {}",
-      "with gzip.open(sys.argv[1], 'rt', encoding='utf-8') as f:",
-      isJsonl ? "    cards = (json.loads(line) for line in f if line.strip())" : "    cards = json.load(f)",
-      "    for c in cards:",
-      "        if c.get('id'):",
-      "            index[c['id']] = {'code': (c.get('set') or '').lower(), 'name': c.get('set_name') or '', 'collectorNumber': c.get('collector_number') or '', 'language': c.get('lang') or ''}",
-      "with open(sys.argv[2], 'w') as out: json.dump(index, out, separators=(',',':'))",
-    ].join("\n");
-    execFileSync("python3", ["-c", pyScript, cardsFile, tmpFile]);
-    const jsonBuf = await fs.readFile(tmpFile);
-    await fs.unlink(tmpFile);
+    const index = cardsFile.endsWith(".jsonl.gz")
+      ? await buildCardIndexFromJsonl(cardsFile)
+      : await buildCardIndexFromJsonArray(cardsFile);
+    const jsonBuf = Buffer.from(JSON.stringify(index));
     await fs.writeFile(path.join(outDir, "cards.json.gz"), gzipSync(jsonBuf));
     console.log(`Card index written (${(jsonBuf.length / 1024 / 1024).toFixed(1)} MB uncompressed).`);
   } else {

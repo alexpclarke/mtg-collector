@@ -7,6 +7,7 @@ function ref(value) {
 }
 
 test("given prior run output state when resetting outputs then stale boxes and metrics are cleared", () => {
+  // Setup
   const refs = {
     boxes: ref([{ label: "2020", totalCount: 100, sets: [] }]),
     missingEditionList: ref([{ name: "Card" }]),
@@ -17,8 +18,10 @@ test("given prior run output state when resetting outputs then stale boxes and m
     hoveredSegment: ref({ boxIndex: 1 }),
   };
 
+  // Exercise
   resetRunOutputRefs(refs);
 
+  // Verify
   assert.deepEqual(refs.boxes.value, []);
   assert.deepEqual(refs.missingEditionList.value, []);
   assert.equal(refs.missingEditionTotal.value, 0);
@@ -29,6 +32,7 @@ test("given prior run output state when resetting outputs then stale boxes and m
 });
 
 test("given a run failure when applying failure state then outputs are cleared and error message is set", () => {
+  // Setup
   const refs = {
     boxes: ref([{ label: "2020", totalCount: 100, sets: [] }]),
     missingEditionList: ref([{ name: "Card" }]),
@@ -40,8 +44,10 @@ test("given a run failure when applying failure state then outputs are cleared a
     error: ref(""),
   };
 
+  // Exercise
   applyRunFailure(refs, new Error("network down"));
 
+  // Verify
   assert.deepEqual(refs.boxes.value, []);
   assert.deepEqual(refs.missingEditionList.value, []);
   assert.equal(refs.missingEditionTotal.value, 0);
