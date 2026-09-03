@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/alexpclarke/mtg-collector/actions/workflows/ci.yml/badge.svg)](https://github.com/alexpclarke/mtg-collector/actions/workflows/ci.yml)
 [![Deploy to GitHub Pages](https://github.com/alexpclarke/mtg-collector/actions/workflows/deploy.yml/badge.svg)](https://github.com/alexpclarke/mtg-collector/actions/workflows/deploy.yml)
+[![Scryfall data updated](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Falexpclarke.github.io%2Fmtg-collector%2Fdata%2Fdata-updated-at.json&query=%24.updatedAt&label=scryfall%20data%20updated)](https://alexpclarke.github.io/mtg-collector/)
 
 A browser-based Vue app for packing MTG inventory CSV data into box groups, with Scryfall set metadata lookup and review reporting.
 

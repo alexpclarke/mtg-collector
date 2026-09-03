@@ -83,7 +83,9 @@ async function buildScryfallData() {
   // signal for cards.json.gz, independent of when this deploy happened to run.
   const updatedAtFile = path.join(dataDir, ".default-cards-updated-at");
   try {
-    const updatedAt = (await fs.readFile(updatedAtFile, "utf-8")).trim();
+    const rawUpdatedAt = (await fs.readFile(updatedAtFile, "utf-8")).trim();
+    // Truncate to minute precision — seconds/ms are noise for a freshness display.
+    const updatedAt = new Date(rawUpdatedAt).toISOString().slice(0, 16) + "Z";
     await fs.writeFile(path.join(outDir, "data-updated-at.json"), JSON.stringify({ updatedAt }));
   } catch {
     console.warn(`Warning: no ${updatedAtFile} found; "Data last updated" will be unavailable.`);
