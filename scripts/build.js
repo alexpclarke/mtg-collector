@@ -78,6 +78,16 @@ async function buildScryfallData() {
   } else {
     console.warn("Warning: no default-cards bulk data found in data/scryfall/. Run the update-scryfall-bulk-data workflow first.");
   }
+
+  // Scryfall's own updated_at for the default-cards bulk data — the true freshness
+  // signal for cards.json.gz, independent of when this deploy happened to run.
+  const updatedAtFile = path.join(dataDir, ".default-cards-updated-at");
+  try {
+    const updatedAt = (await fs.readFile(updatedAtFile, "utf-8")).trim();
+    await fs.writeFile(path.join(outDir, "data-updated-at.json"), JSON.stringify({ updatedAt }));
+  } catch {
+    console.warn(`Warning: no ${updatedAtFile} found; "Data last updated" will be unavailable.`);
+  }
 }
 
 async function main() {

@@ -5,7 +5,7 @@ dist/
 .gh-pages/
 data/scryfall/*.json.gz
 data/scryfall/*.jsonl.gz
-data/scryfall/.sets-hash
+data/scryfall/.default-cards-updated-at
 public/
 
 # OS noise

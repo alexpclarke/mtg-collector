@@ -237,13 +237,15 @@ export function applyResolutionToInventoryRows(rows, resolvedByIdentifier) {
   return rows.map((row) => applyResolutionToRow(row, resolvedByIdentifier));
 }
 
-// Fetches just the Last-Modified timestamp of the Scryfall sets file via a
-// HEAD request, without downloading the full payload. Used to display the data
-// freshness date on page load without waiting for a full run.
+// Fetches Scryfall's own updated_at for the bulk card data (written at build time
+// into data-updated-at.json). Used to display the true data freshness date on
+// page load without waiting for a full run.
 export async function fetchScryfallDataTimestamp() {
   try {
-    const response = await fetch("./data/sets.json.gz", { method: "HEAD" });
-    return response.headers?.get("Last-Modified") ?? null;
+    const response = await fetch("./data/data-updated-at.json");
+    if (!response.ok) return null;
+    const { updatedAt } = await response.json();
+    return updatedAt ?? null;
   } catch {
     return null;
   }
@@ -251,16 +253,13 @@ export async function fetchScryfallDataTimestamp() {
 
 // Fetches the pre-built Scryfall sets list (sets.json.gz) from the deployed
 // static assets. Used during run() to build set mappings before CSV parsing.
-// Also returns the Last-Modified response header as dataTimestamp so the UI
-// can display when the Scryfall data was last refreshed.
 export async function loadScryfallSets() {
   const url = "./data/sets.json.gz";
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
   const text = await readPossiblyCompressedText(response);
   const sets = JSON.parse(text);
-  const dataTimestamp = response.headers?.get("Last-Modified") ?? null;
-  return { sets, dataTimestamp };
+  return { sets };
 }
 
 // Builds a direct URL to a card's page on Scryfall.com.
