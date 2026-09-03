@@ -76,26 +76,26 @@ export function useSettings() {
   }
 
   // Increments or decrements the box capacity by delta (used by +/- buttons).
-  function adjustBoxCapacity(delta) {
+  function adjustBoxCapacity(delta: number) {
     settingRefs["box-capacity"] = (Number(settingRefs["box-capacity"]) || 0) + delta;
     normalizeSettingValue("box-capacity");
   }
 
   // Records which settings tooltip is open and positions it near the trigger.
-  function showSettingsTooltip(key, event) {
+  function showSettingsTooltip(key: string, event: MouseEvent | FocusEvent) {
     openSettingsTooltip.value = key;
     updateSettingsTooltipPosition(event);
   }
 
   // Clears the open tooltip if it matches key (prevents closing unrelated ones).
-  function hideSettingsTooltip(key) {
+  function hideSettingsTooltip(key: string) {
     if (openSettingsTooltip.value === key) {
       openSettingsTooltip.value = "";
     }
   }
 
-  function updateSettingsTooltipPosition(event) {
-    if (event?.clientX != null && event?.clientY != null) {
+  function updateSettingsTooltipPosition(event: MouseEvent | FocusEvent) {
+    if (event instanceof MouseEvent) {
       settingsTooltipPosition.value = getTooltipPosition(event.clientX, event.clientY, {
         width: 288,
         minWidth: 224,
@@ -103,7 +103,7 @@ export function useSettings() {
       });
       return;
     }
-    const rect = event?.currentTarget?.getBoundingClientRect?.();
+    const rect = event.currentTarget instanceof Element ? event.currentTarget.getBoundingClientRect() : null;
     if (rect) {
       settingsTooltipPosition.value = getTooltipPosition(rect.left + rect.width / 2, rect.top + rect.height / 2, {
         width: 288,
@@ -113,21 +113,8 @@ export function useSettings() {
     }
   }
 
-  // Allows clicking anywhere in a settings card row to toggle its checkbox,
-  // while still letting clicks on interactive children behave normally.
-  function toggleSettingCheckbox(event, checkboxId) {
-    const target = event.target;
-    if (target instanceof Element && target.closest('input, label, button, a, [role="button"]')) {
-      return;
-    }
-    const checkbox = document.getElementById(checkboxId);
-    if (checkbox instanceof HTMLInputElement && checkbox.type === "checkbox") {
-      checkbox.click();
-    }
-  }
-
   // Focuses the text/number input inside a settings card when the card area is clicked.
-  function focusSettingInput(event) {
+  function focusSettingInput(event: MouseEvent) {
     const target = event.target;
     if (target instanceof Element && target.closest('input, label, button, a, select, textarea, [role="button"]')) {
       return;
@@ -165,7 +152,6 @@ export function useSettings() {
     showSettingsTooltip,
     hideSettingsTooltip,
     updateSettingsTooltipPosition,
-    toggleSettingCheckbox,
     focusSettingInput,
   };
 }

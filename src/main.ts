@@ -395,7 +395,7 @@ createApp({
                       @show-tooltip="showSettingsTooltip"
                       @hide-tooltip="hideSettingsTooltip"
                       @move-tooltip="updateSettingsTooltipPosition"
-                      @adjust="(delta) => { settingRefs[setting.id] = (Number(settingRefs[setting.id]) || 0) + delta; normalizeSettingValue(setting.id); }"
+                      @adjust="adjustBoxCapacity"
                       @normalize="normalizeSettingValue"
                     />
 
