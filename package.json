@@ -20,7 +20,7 @@
   "dependencies": {
     "@carbon/styles": "1.110.1",
     "@carbon/vue": "^3.0.31",
-    "papaparse": "5.5.4",
+    "papaparse": "5.7.0",
     "vue": "3.5.39"
   },
   "devDependencies": {
