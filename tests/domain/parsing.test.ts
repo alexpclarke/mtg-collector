@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { packSetsIntoBoxes } from "../../src/domain/parsing.ts";
+import { packSetsIntoBoxes, parseRows } from "../../src/domain/parsing.ts";
+import { applyResolutionToInventoryRows } from "../../src/services/scryfall.ts";
 
 function makeSet(code, year, count) {
   return { code, name: `Set ${code}`, count, year };
@@ -108,6 +109,74 @@ test("given a firstBoxStartYear that does not match any set in the first box whe
 
   // Verify
   assert.equal(boxes[0].label, "2030-2018");
+});
+
+test("given raw rows for distinct Order of Leitbur prints when parsed after Scryfall resolution then they remain separate cards", () => {
+  const rawRows = [
+    {
+      Count: "1",
+      "Tradelist Count": "1",
+      Name: "Order of Leitbur",
+      Edition: "Fallen Empires",
+      "Edition Code": "fe",
+      "Card Number": "163",
+      Language: "English",
+      Foil: "",
+      "Scryfall ID": "ebd6e51e-f042-4673-a898-291607105829",
+    },
+    {
+      Count: "1",
+      "Tradelist Count": "1",
+      Name: "Order of Leitbur",
+      Edition: "Fallen Empires",
+      "Edition Code": "fe",
+      "Card Number": "165",
+      Language: "English",
+      Foil: "",
+      "Scryfall ID": "1373dea4-3565-4612-8505-ab8fba3ddb67",
+    },
+  ];
+  const resolvedRows = applyResolutionToInventoryRows(rawRows, {
+    "ebd6e51e-f042-4673-a898-291607105829": {
+      code: "fem",
+      name: "Fallen Empires",
+      collectorNumber: "16a",
+      language: "en",
+    },
+    "1373dea4-3565-4612-8505-ab8fba3ddb67": {
+      code: "fem",
+      name: "Fallen Empires",
+      collectorNumber: "16c",
+      language: "en",
+    },
+  });
+  const mappings = {
+    parentCodeByAlias: { fem: "fem" },
+    setNameByCode: { fem: "Fallen Empires" },
+    codeByNormalizedName: { "fallen empires": "fem" },
+    yearByCode: { fem: 1994 },
+    dateByCode: { fem: "1994-11-01" },
+    metaByCode: { fem: { setType: "expansion", hasParentSet: false } },
+    metaByName: { "fallen empires": { year: 1994, releasedAt: "1994-11-01", setType: "expansion", hasParentSet: false } },
+  };
+
+  // Exercise
+  const result = parseRows(resolvedRows, mappings);
+
+  // Verify
+  assert.equal(result.packable.length, 1);
+  const [set] = result.packable;
+  assert.equal(set.cards.length, 2, "16a and 16c should remain separate cards, not merged into one");
+
+  const collectorNumbers = set.cards.map((card) => card.collectorNumber).sort();
+  assert.deepEqual(collectorNumbers, ["16a", "16c"]);
+
+  const scryfallIds = set.cards.map((card) => card.scryfallId).sort();
+  assert.deepEqual(scryfallIds, ["1373dea4-3565-4612-8505-ab8fba3ddb67", "ebd6e51e-f042-4673-a898-291607105829"]);
+
+  for (const card of set.cards) {
+    assert.equal(card.count, 1, "each distinct print's count should not be summed with the other's");
+  }
 });
 
 test("given a box whose running total lands exactly on capacity when packing then the next set starts a new box instead of overfilling it", () => {

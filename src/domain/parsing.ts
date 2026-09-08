@@ -112,7 +112,7 @@ export function releaseSortKey(setInfo) {
 }
 
 // Accumulates a card into a set entry’s temporary cardMap, merging duplicate
-// rows (same name + foil + set code + language) by summing their counts.
+// rows (same name + foil + set code + collector number + language) by summing their counts.
 // The cardMap is a staging structure — finalizeCardList() converts it to a
 // sorted array once all rows for a set have been processed.
 export function addCardToEntry(
@@ -130,12 +130,13 @@ export function addCardToEntry(
   if (!entry.cardMap) entry.cardMap = new Map();
   const cardNameTrimmed = String(cardName || "(unknown card)").trim() || "(unknown card)";
   const normalizedSetCode = String(setCode || "").trim().toUpperCase();
+  const normalizedCollectorNumber = String(collectorNumber || "").trim();
   const normalizedLanguage = String(language || "").trim();
-  const key = `${cardNameTrimmed}|foil:${foil}|set:${normalizedSetCode}|lang:${normalizedLanguage}`;
+  const key = `${cardNameTrimmed}|foil:${foil}|set:${normalizedSetCode}|collector:${normalizedCollectorNumber}|lang:${normalizedLanguage}`;
   const existing = entry.cardMap.get(key) || {
     name: cardNameTrimmed,
     count: 0,
-    collectorNumber: String(collectorNumber || "").trim(),
+    collectorNumber: normalizedCollectorNumber,
     foil,
     scryfallId: String(scryfallId || "").trim() || null,
     setCode: normalizedSetCode,
