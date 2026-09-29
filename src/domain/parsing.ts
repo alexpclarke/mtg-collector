@@ -346,7 +346,23 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
     throw new Error(`Invalid boxCapacity: expected a positive finite number, got ${boxCapacity}`);
   }
 
-  const { firstBoxStartYear = null, separateForeignLanguage = true, mappings = null, nativeLanguage = FOREIGN_LANGUAGE_ENGLISH } = options;
+  const {
+    firstBoxStartYear = null,
+    optimizePacking = true,
+    separateForeignLanguage = true,
+    mappings = null,
+    nativeLanguage = FOREIGN_LANGUAGE_ENGLISH,
+  } = options as {
+    firstBoxStartYear?: number | null;
+    optimizePacking?: boolean;
+    separateForeignLanguage?: boolean;
+    mappings?: {
+      parentCodeByAlias: Record<string, string>;
+      setNameByCode: Record<string, string>;
+      metaByCode: Record<string, { setType?: string }>;
+    } | null;
+    nativeLanguage?: string;
+  };
   function closeBox(contents, total, labelOverride = null) {
     if (labelOverride) return { label: labelOverride, totalCount: total, sets: contents };
     const years = contents.map((x) => x.year).filter(Boolean);
@@ -384,7 +400,7 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
         queue.shift();
         continue;
       }
-      const bestFitIndex = findBestFitIndex(queue, boxCapacity - total);
+      const bestFitIndex = optimizePacking ? findBestFitIndex(queue, boxCapacity - total) : -1;
       if (bestFitIndex !== -1) {
         const [item] = queue.splice(bestFitIndex, 1);
         current.push(item);
@@ -440,26 +456,39 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
   const boxes = [];
   let current = [];
   let total = 0;
-  for (const year of [...byYear.keys()].sort((a, b) => a - b)) {
-    const yearQueue = byYear.get(year).sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
-    while (yearQueue.length) {
-      const next = yearQueue[0];
-      if (total + next.count <= boxCapacity) {
-        current.push(next);
-        total += next.count;
-        yearQueue.shift();
-        continue;
+  if (optimizePacking) {
+    for (const year of [...byYear.keys()].sort((a, b) => a - b)) {
+      const yearQueue = byYear.get(year).sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+      while (yearQueue.length) {
+        const next = yearQueue[0];
+        if (total + next.count <= boxCapacity) {
+          current.push(next);
+          total += next.count;
+          yearQueue.shift();
+          continue;
+        }
+        const bestFitIndex = findBestFitIndex(yearQueue, boxCapacity - total);
+        if (bestFitIndex !== -1) {
+          const [item] = yearQueue.splice(bestFitIndex, 1);
+          current.push(item);
+          total += item.count;
+          continue;
+        }
+        boxes.push(closeBox(current, total));
+        current = [];
+        total = 0;
       }
-      const bestFitIndex = findBestFitIndex(yearQueue, boxCapacity - total);
-      if (bestFitIndex !== -1) {
-        const [item] = yearQueue.splice(bestFitIndex, 1);
-        current.push(item);
-        total += item.count;
-        continue;
+    }
+  } else {
+    const chronologicalQueue = [...known].sort((a, b) => releaseSortKey(a).localeCompare(releaseSortKey(b)));
+    for (const set of chronologicalQueue) {
+      if (total + set.count > boxCapacity) {
+        boxes.push(closeBox(current, total));
+        current = [];
+        total = 0;
       }
-      boxes.push(closeBox(current, total));
-      current = [];
-      total = 0;
+      current.push(set);
+      total += set.count;
     }
   }
   if (current.length) boxes.push(closeBox(current, total));
@@ -476,11 +505,15 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
   }
 
   if (special.length) {
-    special.sort((a, b) => (a.year || 9999) - (b.year || 9999) || b.count - a.count || a.code.localeCompare(b.code));
+    special.sort(optimizePacking
+      ? (a, b) => (a.year || 9999) - (b.year || 9999) || b.count - a.count || a.code.localeCompare(b.code)
+      : (a, b) => releaseSortKey(a).localeCompare(releaseSortKey(b)));
     boxes.push(...packGroup(special, SPECIAL_BOX_LABEL, true));
   }
   if (foreign.length) {
-    foreign.sort((a, b) => a.language.localeCompare(b.language) || a.code.localeCompare(b.code));
+    foreign.sort(optimizePacking
+      ? (a, b) => a.language.localeCompare(b.language) || a.code.localeCompare(b.code)
+      : (a, b) => releaseSortKey(a).localeCompare(releaseSortKey(b)) || a.language.localeCompare(b.language));
     boxes.push(...packGroup(foreign, FOREIGN_BOX_LABEL, true));
   }
   for (const box of boxes) {

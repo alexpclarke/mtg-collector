@@ -208,3 +208,17 @@ test("given a year whose largest sets don't fit but a smaller set later in the s
   assert.equal(boxes[1].totalCount, 30);
   assert.deepEqual(boxes[1].sets.map((s) => s.code).sort(), ["big2", "small2", "small3"]);
 });
+
+test("given packing optimization is disabled when packing then sets fill boxes in release-date order", () => {
+  const sets = [
+    { ...makeSet("later", 2020, 4), releasedAt: "2020-06-01" },
+    { ...makeSet("oldest", 2020, 6), releasedAt: "2020-01-01" },
+    { ...makeSet("middle", 2020, 4), releasedAt: "2020-03-01" },
+  ];
+
+  const boxes = packSetsIntoBoxes(sets, 10, { optimizePacking: false });
+
+  assert.equal(boxes.length, 2);
+  assert.deepEqual(boxes[0].sets.map((set) => set.code), ["oldest", "middle"]);
+  assert.deepEqual(boxes[1].sets.map((set) => set.code), ["later"]);
+});

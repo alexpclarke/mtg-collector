@@ -19,6 +19,12 @@ export const SETTINGS = [
     "Checked: first box starts at 1993. Unchecked: starts at your oldest year.",
     true,
   ),
+  new CheckboxSetting(
+    "optimize-packing",
+    "Optimize box packing",
+    "Checked: use the current box-filling algorithm. Unchecked: pack sets in release-date order.",
+    true,
+  ),
   new IntegerSetting(
     "box-capacity",
     "Box capacity",

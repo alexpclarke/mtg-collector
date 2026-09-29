@@ -229,6 +229,7 @@ createApp({
         const parsed = parseRows(rowsToParse, mappings, settingRefs["separate-foreign"], settingRefs["native-language"]);
         const packed = packSetsIntoBoxes(parsed.packable, Number(settingRefs["box-capacity"]), {
           firstBoxStartYear: settingRefs["start-at-1993"] ? 1993 : null,
+          optimizePacking: settingRefs["optimize-packing"],
           separateForeignLanguage: settingRefs["separate-foreign"],
           nativeLanguage: settingRefs["native-language"],
           mappings,
