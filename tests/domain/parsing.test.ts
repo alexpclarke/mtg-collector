@@ -78,6 +78,15 @@ test("given a set with no resolved year when packing then a descriptive error is
   assert.throws(() => packSetsIntoBoxes(sets, 10), /unresolved year/i);
 });
 
+test("given an unsupported packing strategy when packing then a descriptive error is thrown", () => {
+  const sets = [makeSet("abc", 2020, 5)];
+
+  assert.throws(
+    () => packSetsIntoBoxes(sets, 10, { packingStrategy: "unknown" }),
+    /invalid packingStrategy/i,
+  );
+});
+
 test("given a set that is both special and foreign-language when packing then it is routed to the Foreign box, not the misc. box", () => {
   // Setup
   const sets = [{ code: "sld", name: "Secret Lair Drop", count: 3, year: 2021, language: "Japanese" }];
@@ -199,7 +208,7 @@ test("given a year whose largest sets don't fit but a smaller set later in the s
   const sets = [makeSet("big1", 2020, 30), makeSet("big2", 2020, 25), makeSet("small1", 2020, 20), makeSet("small2", 2020, 4), makeSet("small3", 2020, 1)];
 
   // Exercise
-  const boxes = packSetsIntoBoxes(sets, 50);
+  const boxes = packSetsIntoBoxes(sets, 50, { packingStrategy: "optimized" });
 
   // Verify
   assert.equal(boxes.length, 2);
@@ -209,14 +218,14 @@ test("given a year whose largest sets don't fit but a smaller set later in the s
   assert.deepEqual(boxes[1].sets.map((s) => s.code).sort(), ["big2", "small2", "small3"]);
 });
 
-test("given packing optimization is disabled when packing then sets fill boxes in release-date order", () => {
+test("given chronological strategy is selected when packing then sets fill boxes in release-date order", () => {
   const sets = [
     { ...makeSet("later", 2020, 4), releasedAt: "2020-06-01" },
     { ...makeSet("oldest", 2020, 6), releasedAt: "2020-01-01" },
     { ...makeSet("middle", 2020, 4), releasedAt: "2020-03-01" },
   ];
 
-  const boxes = packSetsIntoBoxes(sets, 10, { optimizePacking: false });
+  const boxes = packSetsIntoBoxes(sets, 10, { packingStrategy: "chronological" });
 
   assert.equal(boxes.length, 2);
   assert.deepEqual(boxes[0].sets.map((set) => set.code), ["oldest", "middle"]);

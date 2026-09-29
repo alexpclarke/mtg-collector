@@ -19,11 +19,15 @@ export const SETTINGS = [
     "Checked: first box starts at 1993. Unchecked: starts at your oldest year.",
     true,
   ),
-  new CheckboxSetting(
-    "optimize-packing",
-    "Optimize box packing",
-    "Checked: use the current box-filling algorithm. Unchecked: pack sets in release-date order.",
-    true,
+  new DropdownSetting(
+    "packing-strategy",
+    "Packing strategy",
+    "Optimized packing uses the current box-filling algorithm. Chronological order packs sets by release date.",
+    "optimized",
+    [
+      { value: "optimized", label: "Optimized packing" },
+      { value: "chronological", label: "Chronological order" },
+    ],
   ),
   new IntegerSetting(
     "box-capacity",

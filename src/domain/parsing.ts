@@ -348,13 +348,13 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
 
   const {
     firstBoxStartYear = null,
-    optimizePacking = true,
+    packingStrategy = "optimized",
     separateForeignLanguage = true,
     mappings = null,
     nativeLanguage = FOREIGN_LANGUAGE_ENGLISH,
   } = options as {
     firstBoxStartYear?: number | null;
-    optimizePacking?: boolean;
+      packingStrategy?: "optimized" | "chronological";
     separateForeignLanguage?: boolean;
     mappings?: {
       parentCodeByAlias: Record<string, string>;
@@ -363,6 +363,10 @@ export function packSetsIntoBoxes(sets, boxCapacity, options = {}) {
     } | null;
     nativeLanguage?: string;
   };
+  if (packingStrategy !== "optimized" && packingStrategy !== "chronological") {
+    throw new Error(`Invalid packingStrategy: expected "optimized" or "chronological", got "${packingStrategy}"`);
+  }
+  const optimizePacking = packingStrategy === "optimized";
   function closeBox(contents, total, labelOverride = null) {
     if (labelOverride) return { label: labelOverride, totalCount: total, sets: contents };
     const years = contents.map((x) => x.year).filter(Boolean);
