@@ -24,6 +24,13 @@ Follow these principles when making development decisions in this project.
 
 ## 4. Test business behavior, not just implementation
 
+- Follow framework-neutral xUnit conventions with the project's `node:test` runner; do not introduce xUnit.net or language-specific testing APIs.
+- Structure tests as Given/When/Then, corresponding to Arrange/Act/Assert, and keep each test focused on one behavior and outcome.
+- Use descriptive names that identify the scenario and expected result.
+- Keep tests independent. Set up mutable state and mocks per test, and restore globals or other shared state during cleanup.
+- Assert observable behavior rather than implementation details.
+- Use table-driven cases for related inputs when they improve coverage without obscuring each case's intent.
+- Generally follow the guidance in Gerard Meszaros's *xUnit Test Patterns: Refactoring Test Code*, applying patterns when they improve test clarity, reliability, or maintainability without adding unnecessary abstraction.
 - Prioritize tests for packing rules, parsing outcomes, sorting behavior, and edge cases.
 - Weight test effort toward domain logic over thin UI wiring.
 - Use coverage as a signal, not a goal.

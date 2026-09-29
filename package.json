@@ -15,7 +15,7 @@
     "lint": "eslint . && stylelint 'src/**/*.scss' --fix",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "find tests -type f -name '*.test.ts' -exec tsx --test {} +"
   },
   "dependencies": {
     "@carbon/styles": "1.110.1",
