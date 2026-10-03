@@ -21,7 +21,7 @@
     "@carbon/styles": "1.116.0",
     "@carbon/vue": "^3.0.31",
     "papaparse": "5.7.0",
-    "vue": "3.5.39"
+    "vue": "3.5.43"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
