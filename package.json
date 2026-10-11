@@ -18,7 +18,7 @@
     "test": "find tests -type f -name '*.test.ts' -exec tsx --test {} +"
   },
   "dependencies": {
-    "@carbon/styles": "1.116.0",
+    "@carbon/styles": "1.117.0",
     "@carbon/vue": "^3.0.31",
     "papaparse": "5.7.0",
     "vue": "3.5.43"
